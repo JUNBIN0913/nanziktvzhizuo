@@ -1,0 +1,2696 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>喃字與 K-POP KTV 字幕製作系統</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    @font-face {
+      font-family: 'NomFont';
+      src: local('NomNaTong-Regular'), local('NomNaTong');
+    }
+    @font-face {
+      font-family: 'UserKaiFont';
+      src: local('DFKai-SB'), local('BiauKai'), local('KaiTi'), local('標楷體');
+    }
+    .font-nom {
+      font-family: 'UserNomFont', 'NomFont', 'HAN NOM A', 'HAN NOM B', serif, sans-serif;
+    }
+    .font-kpop-kr {
+      font-family: 'Microsoft JhengHei', '微軟正黑體', 'Malgun Gothic', 'Noto Sans KR', sans-serif;
+    }
+    .font-kpop-kai {
+      font-family: 'UserKaiFont', 'DFKai-SB', 'BiauKai', 'KaiTi', '標楷體', serif;
+    }
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    .tap-btn-active {
+      transform: scale(0.97);
+      filter: brightness(1.25);
+    }
+    .touch-friendly {
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans min-h-screen flex flex-col select-none overflow-x-hidden touch-friendly">
+
+  <!-- 媒體播放核心 (MP4 影片 / MP3 音訊) -->
+  <video id="mediaPlayer" class="hidden" playsinline preload="auto" crossorigin="anonymous"></video>
+
+  <!-- 頂部導航列 -->
+  <header class="bg-slate-900 border-b border-slate-800 px-3 sm:px-4 py-2.5 sticky top-0 z-40 flex items-center justify-between shadow-lg">
+    <!-- 左側群組：Logo + 檔案 + 儲存 + 輸出 + 切換 -->
+    <div class="flex items-center space-x-2 sm:space-x-2.5 overflow-x-auto no-scrollbar py-0.5">
+      <!-- Logo -->
+      <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-amber-500 via-rose-500 to-pink-500 flex items-center justify-center text-white font-bold shadow-md shadow-amber-500/20 shrink-0">
+        <i class="fa-solid fa-microphone-lines text-base"></i>
+      </div>
+
+      <!-- 檔案 -->
+      <button id="btnOpenProjectsModal" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold border border-slate-700 text-cyan-300 transition flex items-center gap-1.5 shadow-sm shrink-0">
+        <i class="fa-solid fa-folder-tree text-[11px]"></i>
+        <span>檔案</span>
+      </button>
+
+      <!-- 儲存 (依序遞補在檔案旁邊) -->
+      <button id="btnManualSave" class="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-md shadow-blue-600/30 transition flex items-center gap-1.5 shrink-0">
+        <i class="fa-solid fa-floppy-disk text-[11px]"></i>
+        <span>儲存</span>
+      </button>
+
+      <!-- 輸出按鈕 -->
+      <button id="btnOpenExportModal" class="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md shadow-emerald-700/30 transition flex items-center gap-1.5 shrink-0">
+        <i class="fa-solid fa-file-export text-[11px]"></i>
+        <span>輸出</span>
+      </button>
+
+      <!-- 切換按鈕 -->
+      <button id="btnToggleSystemMode" class="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white text-xs font-bold transition flex items-center gap-1.5 shrink-0 shadow-md shadow-purple-600/30">
+        <i class="fa-solid fa-repeat text-[11px]"></i>
+        <span>切換</span>
+      </button>
+    </div>
+
+    <!-- 右側當前系統模式徽章 -->
+    <div class="hidden md:flex items-center text-[11px] font-medium">
+      <span id="currentModeBadge" class="bg-slate-800/90 text-cyan-300 border border-slate-700/80 px-2.5 py-1 rounded-lg flex items-center gap-1.5">
+        <i class="fa-solid fa-circle-dot text-amber-400"></i>
+        <span id="currentModeBadgeText">喃字 KTV 模式</span>
+      </span>
+    </div>
+  </header>
+
+  <!-- 主工作視窗 -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-4 grid grid-cols-1 lg:grid-cols-12 gap-4">
+    
+    <!-- 左側面板：素材、歌詞與 RGB 色彩 (4 欄寬) -->
+    <section class="lg:col-span-4 flex flex-col space-y-4">
+      
+      <!-- 1. 媒體與字型載入 -->
+      <div class="bg-slate-900/90 backdrop-blur rounded-2xl p-4 border border-slate-800 shadow-sm space-y-3">
+        <div class="flex items-center justify-between border-b border-slate-800/80 pb-2">
+          <h2 class="text-sm font-semibold text-slate-200 flex items-center gap-2">
+            <i class="fa-solid fa-film text-amber-400"></i> 1. 素材與字型載入
+          </h2>
+          <span class="text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 font-mono">
+            長度不限
+          </span>
+        </div>
+
+        <div>
+          <label class="text-xs text-slate-400 mb-1 block font-medium">上傳歌曲 MP4 影片或 MP3 音訊檔</label>
+          <input type="file" id="mediaFileInput" accept="video/mp4,video/webm,video/mkv,audio/*" class="hidden">
+          <button onclick="document.getElementById('mediaFileInput').click()" class="w-full py-2.5 px-3 rounded-xl border border-dashed border-slate-700 hover:border-amber-500/60 bg-slate-950/60 hover:bg-slate-800/50 text-xs text-slate-300 flex items-center justify-between transition group">
+            <span id="mediaFileName" class="truncate max-w-[190px] text-slate-400">選擇 MP4 或音訊...</span>
+            <span class="bg-slate-800 group-hover:bg-amber-500 group-hover:text-slate-950 text-slate-300 text-[10px] px-2 py-1 rounded-md transition font-semibold">選擇檔案</span>
+          </button>
+        </div>
+
+        <!-- 喃字模式專用：字型載入區塊 -->
+        <div id="nomFontUploaderContainer">
+          <label class="text-xs text-slate-400 mb-1 block font-medium flex items-center justify-between">
+            <span>載入喃字字型 (NomNaTong-Regular.ttf)</span>
+            <span id="fontStatusBadge" class="text-[10px] text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">系統預設</span>
+          </label>
+          <input type="file" id="fontFileInput" accept=".ttf,.otf,.woff,.woff2" class="hidden">
+          <button onclick="document.getElementById('fontFileInput').click()" class="w-full py-2.5 px-3 rounded-xl border border-dashed border-slate-700 hover:border-cyan-500/60 bg-slate-950/60 hover:bg-slate-800/50 text-xs text-slate-300 flex items-center justify-between transition group">
+            <span id="fontFileName" class="truncate max-w-[190px] text-slate-400">載入 NomNaTong-Regular.ttf</span>
+            <span class="bg-slate-800 group-hover:bg-cyan-500 group-hover:text-slate-950 text-slate-300 text-[10px] px-2 py-1 rounded-md transition font-semibold">更換字型</span>
+          </button>
+        </div>
+
+        <!-- K-POP 模式專用：個人標楷體載入區塊 (依據附件要求支援即時載入個人專屬標楷體) -->
+        <div id="kaiFontUploaderContainer" class="hidden">
+          <label class="text-xs text-slate-400 mb-1 block font-medium flex items-center justify-between">
+            <span class="text-amber-300 font-bold flex items-center gap-1">
+              <i class="fa-solid fa-font"></i> 中文翻譯標楷體字型檔
+            </span>
+            <span id="kaiFontStatusBadge" class="text-[10px] text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">專屬字型已備妥</span>
+          </label>
+          <input type="file" id="kaiFileInput" accept=".ttf,.otf,.ttc,.woff,.woff2" class="hidden">
+          <button onclick="document.getElementById('kaiFileInput').click()" class="w-full py-2.5 px-3 rounded-xl border border-dashed border-amber-500/50 hover:border-amber-400 bg-slate-950/60 hover:bg-slate-800/50 text-xs text-slate-300 flex items-center justify-between transition group shadow-sm">
+            <span id="kaiFileName" class="truncate max-w-[190px] text-amber-300/90 font-medium">個人專屬標楷體 (UserKaiFont)</span>
+            <span class="bg-amber-600 group-hover:bg-amber-500 text-slate-950 font-bold text-[10px] px-2 py-1 rounded-md transition">更換/載入</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 2. 歌詞輸入區塊 (模式自適應切換) -->
+      <div class="bg-slate-900/90 backdrop-blur rounded-2xl p-4 border border-slate-800 shadow-sm space-y-3">
+        <div class="flex items-center justify-between border-b border-slate-800/80 pb-2">
+          <h2 id="lyricsSectionTitle" class="text-sm font-semibold text-slate-200 flex items-center gap-2">
+            <i class="fa-solid fa-align-left text-rose-400"></i> 2. 喃字歌詞
+          </h2>
+          <button id="btnParseLyrics" class="text-xs bg-rose-500/20 hover:bg-rose-500 text-rose-300 hover:text-white px-2.5 py-1 rounded-lg transition font-medium border border-rose-500/30">
+            解析分詞
+          </button>
+        </div>
+
+        <div>
+          <label id="lyricsInputLabel" class="text-xs text-slate-400 mb-1 block font-medium">主歌詞 (一行一句)：</label>
+          <textarea id="rawLyricsInput" class="w-full h-20 p-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs sm:text-sm font-nom text-slate-200 placeholder-slate-600 focus:outline-none focus:border-rose-500 transition leading-relaxed resize-none" placeholder="請貼上主歌詞，一行一句..."></textarea>
+        </div>
+
+        <!-- K-POP 模式專用：中文翻譯輸入區 -->
+        <div id="kpopTranslationInputGroup" class="hidden space-y-1 pt-2 border-t border-slate-800">
+          <div class="flex items-center justify-between">
+            <label class="text-xs text-amber-300 font-medium flex items-center gap-1.5">
+              <span>♪ 中文翻譯 (左上方套用專屬標楷體，一行一句)：</span>
+            </label>
+            <span class="text-[10px] text-amber-400 font-mono">UserKaiFont</span>
+          </div>
+          <textarea id="rawTranslationInput" class="w-full h-20 p-2.5 bg-slate-950 border border-amber-500/30 rounded-xl text-xs sm:text-sm font-kpop-kai text-amber-200 placeholder-slate-600 focus:outline-none focus:border-amber-400 transition leading-relaxed resize-none" placeholder="請貼上中文翻譯，行數與韓文對應 (如：繼續肆意自由地前行)..."></textarea>
+        </div>
+      </div>
+
+      <!-- 3. 字體大小與色彩樣式面板 -->
+      <div class="bg-slate-900/90 backdrop-blur rounded-2xl p-4 border border-slate-800 shadow-sm space-y-3">
+        <h2 class="text-sm font-semibold text-slate-200 flex items-center gap-2 border-b border-slate-800/80 pb-2">
+          <i class="fa-solid fa-palette text-cyan-400"></i> 3. 字體大小與色彩樣式
+        </h2>
+
+        <!-- 主字幕字體大小 -->
+        <div class="flex items-center justify-between bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+          <span class="text-xs font-semibold text-slate-300">主字幕字體大小 (PX)</span>
+          <div class="flex items-center gap-2">
+            <input type="number" id="inputFontSize" min="30" max="160" value="84" class="w-20 bg-slate-900 border border-slate-700 text-amber-400 font-mono text-center text-sm font-bold rounded-lg py-1 px-2 focus:outline-none focus:border-amber-500">
+            <span class="text-xs text-slate-500">px</span>
+          </div>
+        </div>
+
+        <!-- 中文翻譯專屬設定區塊 (標楷體、字體大小、雙色設定) -->
+        <div id="transStyleContainer" class="hidden bg-slate-950 p-3 rounded-xl border border-amber-500/40 space-y-2.5">
+          <div class="flex items-center justify-between border-b border-slate-800/80 pb-1.5">
+            <span class="text-xs font-bold text-amber-300 flex items-center gap-1.5">
+              <i class="fa-solid fa-language"></i> 中文翻譯樣式 (專屬標楷體)
+            </span>
+            <span id="transFontBadgeName" class="text-[10px] font-mono text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">UserKaiFont</span>
+          </div>
+
+          <!-- 翻譯字體大小設定 (預設 20 號字) -->
+          <div class="flex items-center justify-between">
+            <span class="text-xs text-slate-300">字體大小 (pt / 號)</span>
+            <div class="flex items-center gap-2">
+              <input type="number" id="transFontSizeInput" min="10" max="72" value="20" class="w-20 bg-slate-900 border border-slate-700 text-amber-300 font-mono text-center text-xs font-bold rounded-lg py-1 px-2 focus:outline-none focus:border-amber-400">
+              <span class="text-xs text-slate-500">號</span>
+            </div>
+          </div>
+
+          <!-- 翻譯文字填色 (內部) 與 邊框顏色 (描邊) -->
+          <div class="grid grid-cols-2 gap-2 pt-1">
+            <!-- 填色 -->
+            <div class="bg-slate-900 p-2 rounded-lg border border-slate-800 space-y-1">
+              <div class="flex items-center justify-between">
+                <span class="text-[11px] text-slate-300 font-medium">裡面填色</span>
+                <input type="color" id="transFillColorPicker" value="#FFE600" class="w-5 h-5 rounded cursor-pointer bg-transparent border-0">
+              </div>
+              <input type="text" id="transFillColorHex" value="#FFE600" class="w-full bg-slate-950 border border-slate-700 text-[10px] font-mono text-center rounded py-0.5 text-amber-300 uppercase">
+            </div>
+
+            <!-- 邊框顏色 -->
+            <div class="bg-slate-900 p-2 rounded-lg border border-slate-800 space-y-1">
+              <div class="flex items-center justify-between">
+                <span class="text-[11px] text-slate-300 font-medium">文字邊框</span>
+                <input type="color" id="transStrokeColorPicker" value="#990000" class="w-5 h-5 rounded cursor-pointer bg-transparent border-0">
+              </div>
+              <input type="text" id="transStrokeColorHex" value="#990000" class="w-full bg-slate-950 border border-slate-700 text-[10px] font-mono text-center rounded py-0.5 text-rose-300 uppercase">
+            </div>
+          </div>
+        </div>
+
+        <!-- 4 組文字色彩設定 + 去背底色 -->
+        <div class="space-y-2 text-xs">
+          <!-- 1. 未唱文字底色 -->
+          <div class="bg-slate-950 p-2 rounded-xl border border-slate-800 space-y-1.5">
+            <div class="flex items-center justify-between">
+              <span class="font-medium text-slate-300">1. 未唱文字底色 (Fill)</span>
+              <div class="flex items-center gap-1.5">
+                <input type="color" id="picker_in_fill" value="#FFFFFF" class="w-5 h-5 rounded cursor-pointer bg-transparent border-0">
+                <input type="text" id="hex_in_fill" value="#FFFFFF" class="w-18 bg-slate-900 border border-slate-700 text-[10px] font-mono text-center rounded py-0.5 text-slate-300 uppercase">
+              </div>
+            </div>
+            <div class="grid grid-cols-3 gap-1.5">
+              <div class="flex items-center gap-1 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800">
+                <span class="text-[10px] font-mono text-rose-400 font-bold">R</span>
+                <input type="number" id="in_fill_r" min="0" max="255" value="255" class="w-full bg-transparent text-[11px] font-mono text-right focus:outline-none text-slate-200">
+              </div>
+              <div class="flex items-center gap-1 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800">
+                <span class="text-[10px] font-mono text-emerald-400 font-bold">G</span>
+                <input type="number" id="in_fill_g" min="0" max="255" value="255" class="w-full bg-transparent text-[11px] font-mono text-right focus:outline-none text-slate-200">
+              </div>
+              <div class="flex items-center gap-1 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800">
+                <span class="text-[10px] font-mono text-cyan-400 font-bold">B</span>
+                <input type="number" id="in_fill_b" min="0" max="255" value="255" class="w-full bg-transparent text-[11px] font-mono text-right focus:outline-none text-slate-200">
+              </div>
+            </div>
+          </div>
+
+          <!-- 2. 未唱文字描邊 -->
+          <div class="bg-slate-950 p-2 rounded-xl border border-slate-800 space-y-1.5">
+            <div class="flex items-center justify-between">
+              <span class="font-medium text-slate-300">2. 未唱文字描邊 (Stroke)</span>
+              <div class="flex items-center gap-1.5">
+                <input type="color" id="picker_in_stroke" value="#002244" class="w-5 h-5 rounded cursor-pointer bg-transparent border-0">
+                <input type="text" id="hex_in_stroke" value="#002244" class="w-18 bg-slate-900 border border-slate-700 text-[10px] font-mono text-center rounded py-0.5 text-slate-300 uppercase">
+              </div>
+            </div>
+            <div class="grid grid-cols-3 gap-1.5">
+              <div class="flex items-center gap-1 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800">
+                <span class="text-[10px] font-mono text-rose-400 font-bold">R</span>
+                <input type="number" id="in_stroke_r" min="0" max="255" value="0" class="w-full bg-transparent text-[11px] font-mono text-right focus:outline-none text-slate-200">
+              </div>
+              <div class="flex items-center gap-1 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800">
+                <span class="text-[10px] font-mono text-emerald-400 font-bold">G</span>
+                <input type="number" id="in_stroke_g" min="0" max="255" value="34" class="w-full bg-transparent text-[11px] font-mono text-right focus:outline-none text-slate-200">
+              </div>
+              <div class="flex items-center gap-1 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800">
+                <span class="text-[10px] font-mono text-cyan-400 font-bold">B</span>
+                <input type="number" id="in_stroke_b" min="0" max="255" value="68" class="w-full bg-transparent text-[11px] font-mono text-right focus:outline-none text-slate-200">
+              </div>
+            </div>
+          </div>
+
+          <!-- 3. 已唱文字底色 (擦除色) -->
+          <div class="bg-slate-950 p-2 rounded-xl border border-slate-800 space-y-1.5">
+            <div class="flex items-center justify-between">
+              <span class="font-medium text-cyan-300">3. 已唱文字底色 (Active Fill)</span>
+              <div class="flex items-center gap-1.5">
+                <input type="color" id="picker_act_fill" value="#00F0FF" class="w-5 h-5 rounded cursor-pointer bg-transparent border-0">
+                <input type="text" id="hex_act_fill" value="#00F0FF" class="w-18 bg-slate-900 border border-slate-700 text-[10px] font-mono text-center rounded py-0.5 text-cyan-300 uppercase">
+              </div>
+            </div>
+            <div class="grid grid-cols-3 gap-1.5">
+              <div class="flex items-center gap-1 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800">
+                <span class="text-[10px] font-mono text-rose-400 font-bold">R</span>
+                <input type="number" id="act_fill_r" min="0" max="255" value="0" class="w-full bg-transparent text-[11px] font-mono text-right focus:outline-none text-slate-200">
+              </div>
+              <div class="flex items-center gap-1 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800">
+                <span class="text-[10px] font-mono text-emerald-400 font-bold">G</span>
+                <input type="number" id="act_fill_g" min="0" max="255" value="240" class="w-full bg-transparent text-[11px] font-mono text-right focus:outline-none text-slate-200">
+              </div>
+              <div class="flex items-center gap-1 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800">
+                <span class="text-[10px] font-mono text-cyan-400 font-bold">B</span>
+                <input type="number" id="act_fill_b" min="0" max="255" value="255" class="w-full bg-transparent text-[11px] font-mono text-right focus:outline-none text-slate-200">
+              </div>
+            </div>
+          </div>
+
+          <!-- 4. 已唱文字描邊 -->
+          <div class="bg-slate-950 p-2 rounded-xl border border-slate-800 space-y-1.5">
+            <div class="flex items-center justify-between">
+              <span class="font-medium text-cyan-300">4. 已唱文字描邊 (Active Stroke)</span>
+              <div class="flex items-center gap-1.5">
+                <input type="color" id="picker_act_stroke" value="#004488" class="w-5 h-5 rounded cursor-pointer bg-transparent border-0">
+                <input type="text" id="hex_act_stroke" value="#004488" class="w-18 bg-slate-900 border border-slate-700 text-[10px] font-mono text-center rounded py-0.5 text-cyan-300 uppercase">
+              </div>
+            </div>
+            <div class="grid grid-cols-3 gap-1.5">
+              <div class="flex items-center gap-1 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800">
+                <span class="text-[10px] font-mono text-rose-400 font-bold">R</span>
+                <input type="number" id="act_stroke_r" min="0" max="255" value="0" class="w-full bg-transparent text-[11px] font-mono text-right focus:outline-none text-slate-200">
+              </div>
+              <div class="flex items-center gap-1 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800">
+                <span class="text-[10px] font-mono text-emerald-400 font-bold">G</span>
+                <input type="number" id="act_stroke_g" min="0" max="255" value="68" class="w-full bg-transparent text-[11px] font-mono text-right focus:outline-none text-slate-200">
+              </div>
+              <div class="flex items-center gap-1 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800">
+                <span class="text-[10px] font-mono text-cyan-400 font-bold">B</span>
+                <input type="number" id="act_stroke_b" min="0" max="255" value="136" class="w-full bg-transparent text-[11px] font-mono text-right focus:outline-none text-slate-200">
+              </div>
+            </div>
+          </div>
+
+          <!-- 5. 威力導演去背底色 -->
+          <div class="bg-slate-950 p-2 rounded-xl border border-slate-800 space-y-1.5">
+            <div class="flex items-center justify-between">
+              <span class="font-medium text-emerald-400">5. 威力導演色度去背底色</span>
+              <div class="flex items-center gap-1.5">
+                <input type="color" id="picker_bg" value="#00FF00" class="w-5 h-5 rounded cursor-pointer bg-transparent border-0">
+                <input type="text" id="hex_bg" value="#00FF00" class="w-18 bg-slate-900 border border-slate-700 text-[10px] font-mono text-center rounded py-0.5 text-emerald-400 uppercase">
+              </div>
+            </div>
+            <div class="grid grid-cols-3 gap-1.5">
+              <div class="flex items-center gap-1 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800">
+                <span class="text-[10px] font-mono text-rose-400 font-bold">R</span>
+                <input type="number" id="bg_r" min="0" max="255" value="0" class="w-full bg-transparent text-[11px] font-mono text-right focus:outline-none text-slate-200">
+              </div>
+              <div class="flex items-center gap-1 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800">
+                <span class="text-[10px] font-mono text-emerald-400 font-bold">G</span>
+                <input type="number" id="bg_g" min="0" max="255" value="255" class="w-full bg-transparent text-[11px] font-mono text-right focus:outline-none text-slate-200">
+              </div>
+              <div class="flex items-center gap-1 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800">
+                <span class="text-[10px] font-mono text-cyan-400 font-bold">B</span>
+                <input type="number" id="bg_b" min="0" max="255" value="0" class="w-full bg-transparent text-[11px] font-mono text-right focus:outline-none text-slate-200">
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4. 直接輸出腳本快捷專區 -->
+      <div class="bg-slate-900/90 backdrop-blur rounded-2xl p-3.5 border border-emerald-500/30 shadow-sm space-y-2">
+        <div class="flex items-center justify-between">
+          <h2 class="text-xs font-bold text-emerald-300 flex items-center gap-1.5">
+            <i class="fa-solid fa-cloud-arrow-down text-emerald-400"></i> 一鍵輸出字幕腳本
+          </h2>
+          <span class="text-[10px] text-slate-400 font-mono">免彈窗</span>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <button id="btnQuickExportKSC" class="py-2 px-2 rounded-xl bg-slate-950 hover:bg-slate-800 border border-amber-500/40 hover:border-amber-400 text-amber-300 text-xs font-bold transition flex items-center justify-center gap-1.5">
+            <i class="fa-solid fa-file-code"></i>
+            <span>輸出 .KSC</span>
+          </button>
+          <button id="btnQuickExportASS" class="py-2 px-2 rounded-xl bg-slate-950 hover:bg-slate-800 border border-rose-500/40 hover:border-rose-400 text-rose-300 text-xs font-bold transition flex items-center justify-center gap-1.5">
+            <i class="fa-solid fa-closed-captioning"></i>
+            <span>輸出 .ASS</span>
+          </button>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- 中間與右側工作區：16:9 預覽螢幕 + 小灰熊拍打機 (8 欄寬) -->
+    <section class="lg:col-span-8 flex flex-col space-y-4">
+      
+      <!-- 16:9 KTV 舞台預覽螢幕 -->
+      <div class="bg-slate-900 rounded-2xl p-3 border border-slate-800 shadow-xl flex flex-col">
+        <div class="flex items-center justify-between mb-2 px-1">
+          <div class="flex items-center space-x-2">
+            <span class="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse"></span>
+            <span class="text-xs font-bold text-slate-200">即時預覽視窗 (1920x1080 規格)</span>
+          </div>
+
+          <div class="flex items-center space-x-2">
+            <button id="btnTogglePreviewBg" class="text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 px-2.5 py-1 rounded text-[11px] border border-slate-700 transition flex items-center gap-1.5">
+              <span>底色：</span>
+              <span id="previewBgModeText" class="text-amber-400 font-bold">MP4 MV / 純黑</span>
+            </button>
+            <button id="btnDirectDownloadVideo" class="text-white bg-emerald-600 hover:bg-emerald-500 px-2.5 py-1 rounded text-[11px] font-bold transition flex items-center gap-1 shadow-sm">
+              <i class="fa-solid fa-file-export"></i>
+              <span>輸出影片</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 畫布核心容器 -->
+        <div class="relative w-full aspect-video bg-black rounded-xl overflow-hidden shadow-2xl border border-slate-800 flex items-center justify-center">
+          <canvas id="ktvCanvas" width="1920" height="1080" class="w-full h-full object-contain"></canvas>
+        </div>
+
+        <!-- 進度與控制列 -->
+        <div class="mt-3 bg-slate-950 p-3 rounded-xl border border-slate-800/80 space-y-2">
+          <div class="flex items-center justify-between text-xs font-mono text-slate-400">
+            <span id="currentTimeDisplay">00:00.00</span>
+            <span id="playbackStatus" class="text-amber-400 font-sans font-medium text-[11px]">準備就緒</span>
+            <span id="durationDisplay">00:00.00</span>
+          </div>
+          
+          <input type="range" id="mediaTimeline" min="0" max="1000" value="0" step="0.1" class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-amber-500">
+          
+          <div class="flex items-center justify-between pt-1">
+            <div class="flex items-center space-x-2">
+              <button id="btnPlayPause" class="w-9 h-9 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold flex items-center justify-center transition shadow-md shadow-amber-500/20">
+                <i id="playIcon" class="fa-solid fa-play ml-0.5"></i>
+              </button>
+              <button id="btnStop" class="w-9 h-9 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center transition border border-slate-700">
+                <i class="fa-solid fa-rotate-left text-xs"></i>
+              </button>
+              <button id="btnPrevLine" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs border border-slate-700">
+                上一句
+              </button>
+              <button id="btnNextLine" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs border border-slate-700">
+                下一句
+              </button>
+            </div>
+
+            <div class="flex items-center space-x-2 text-xs text-slate-400">
+              <span>拍打速度:</span>
+              <select id="playbackRateSelect" class="bg-slate-800 border border-slate-700 text-slate-200 rounded px-1.5 py-0.5 text-xs">
+                <option value="0.5">0.5x (慢速精確)</option>
+                <option value="0.75">0.75x</option>
+                <option value="1.0" selected>1.0x (原速)</option>
+                <option value="1.25">1.25x</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 全自動換行小灰熊單擊拍打機 -->
+      <div class="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 rounded-2xl p-4 border-2 border-amber-500/40 shadow-2xl space-y-3">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="px-2 py-0.5 rounded bg-amber-500 text-slate-950 text-xs font-black uppercase">小灰熊拍打機</span>
+            <span class="text-xs text-slate-300">正在錄製第 <strong id="currentLineIndexDisplay" class="text-amber-400 font-mono text-base">1</strong> / <span id="totalLinesDisplay">0</span> 句</span>
+          </div>
+          <span id="tapModeHintBadge" class="text-[11px] text-emerald-400 font-medium hidden sm:inline-block">
+            ✨ 字距鎖定、絕對零位移、防誤觸隔離！
+          </span>
+        </div>
+
+        <!-- 當前句大字提示容器 -->
+        <div class="w-full bg-slate-950/95 rounded-xl border border-slate-800 p-2.5 h-24 flex flex-col justify-between overflow-hidden shadow-inner">
+          <div id="tapKaraokeWordContainer" class="w-full h-14 flex flex-nowrap items-center justify-start gap-2 overflow-x-auto no-scrollbar scroll-smooth px-1">
+            <span class="text-slate-500 text-sm font-sans">尚未解析歌詞</span>
+          </div>
+          <div id="nextLinePreviewText" class="text-xs text-slate-400 truncate text-center h-4 leading-none">
+            下一句：-
+          </div>
+        </div>
+
+        <!-- 操作按鈕群 -->
+        <div class="space-y-2.5">
+          <button id="tapWordBtn" class="w-full py-5 px-4 rounded-2xl bg-gradient-to-r from-amber-500 via-rose-500 to-pink-500 hover:from-amber-400 hover:to-pink-400 text-slate-950 font-black text-lg sm:text-xl shadow-lg shadow-rose-500/30 active:tap-btn-active transition select-none flex flex-col items-center justify-center gap-0.5 cursor-pointer touch-friendly">
+            <div class="flex items-center gap-2">
+              <i class="fa-solid fa-bullseye text-2xl"></i>
+              <span id="tapWordBtnTitle">單擊拍打 (SPACE / 觸控點擊)</span>
+            </div>
+            <span id="tapWordBtnDesc" class="text-[11px] font-medium text-slate-950/80">每唱一字按一下・唱完自動無縫跳下一句</span>
+          </button>
+
+          <div class="grid grid-cols-3 gap-2">
+            <button id="btnUndoWord" class="py-2.5 px-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-xs font-bold border border-amber-500/40 flex items-center justify-center gap-1 transition">
+              <i class="fa-solid fa-rotate-left text-amber-400"></i>
+              <span id="btnUndoText">倒退一組 (BS)</span>
+            </button>
+            <button id="btnResetCurrentLine" class="py-2.5 px-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold border border-slate-700 flex items-center justify-center gap-1 transition">
+              <i class="fa-solid fa-trash-can text-rose-400"></i>
+              <span>重拍此句 (DEL)</span>
+            </button>
+            <button id="btnManualNextLine" class="py-2.5 px-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold border border-slate-700 flex items-center justify-center gap-1 transition">
+              <i class="fa-solid fa-angles-down text-emerald-400"></i>
+              <span>跳下一句 (Enter)</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 時間軸記錄清單 -->
+      <div class="bg-slate-900 rounded-2xl p-4 border border-slate-800 shadow-sm">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-2 mb-3">
+          <h3 class="text-xs font-semibold text-slate-200 flex items-center gap-2">
+            <i class="fa-solid fa-list-check text-cyan-400"></i> 拍打時間軸記錄 (可點擊定位)
+          </h3>
+          <span class="text-[11px] text-slate-400">長前奏/間奏(≥4個4拍)藍燈提示・重整自動存檔</span>
+        </div>
+        <div class="max-h-48 overflow-y-auto no-scrollbar space-y-2" id="timingListContainer">
+          <div class="text-center py-6 text-xs text-slate-500">暫無記錄</div>
+        </div>
+      </div>
+
+    </section>
+  </main>
+
+  <!-- 檔案管理 Modal -->
+  <div id="projectsModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 w-full max-w-lg rounded-2xl p-5 sm:p-6 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center">
+            <i class="fa-solid fa-folder-open"></i>
+          </div>
+          <h3 class="text-base font-bold text-slate-100">檔案管理</h3>
+        </div>
+        <button onclick="document.getElementById('projectsModal').classList.add('hidden')" class="text-slate-400 hover:text-slate-200">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <div class="flex gap-2">
+        <input type="text" id="newProjectTitleInput" placeholder="輸入歌曲名稱 (例如：〈Tamed-Dashed〉)..." class="flex-1 bg-slate-950 border border-slate-700 text-sm px-3 py-2 rounded-xl text-slate-200 focus:outline-none focus:border-cyan-500">
+        <button id="btnCreateNewProject" class="px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-xs font-bold rounded-xl transition flex items-center gap-1 shrink-0 shadow-md">
+          <i class="fa-solid fa-plus"></i>
+          <span>新增</span>
+        </button>
+      </div>
+
+      <div class="space-y-2 max-h-64 overflow-y-auto no-scrollbar" id="projectsListContainer"></div>
+
+      <div class="flex justify-between items-center pt-2 border-t border-slate-800 text-xs text-slate-400">
+        <span>雙軌持久化安全架構・關閉重整絕不遺失</span>
+        <button onclick="document.getElementById('projectsModal').classList.add('hidden')" class="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 font-semibold hover:bg-slate-700 transition">
+          關閉
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 改名對話框 Modal -->
+  <div id="renameModal" class="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 w-full max-w-sm rounded-2xl p-5 shadow-2xl space-y-4">
+      <div class="flex items-center gap-2 text-cyan-400 border-b border-slate-800 pb-2">
+        <i class="fa-solid fa-pen-to-square"></i>
+        <h4 class="font-bold text-sm text-slate-100">變更檔案名稱</h4>
+      </div>
+      <div>
+        <label class="text-xs text-slate-400 block mb-1">請輸入新歌曲名稱：</label>
+        <input type="text" id="renameProjectInput" class="w-full bg-slate-950 border border-slate-700 text-sm px-3 py-2 rounded-xl text-slate-200 focus:outline-none focus:border-cyan-500">
+      </div>
+      <div class="flex justify-end gap-2 pt-2">
+        <button id="btnCancelRename" class="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition">
+          取消
+        </button>
+        <button id="btnConfirmRename" class="px-4 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold transition shadow-md">
+          確認變更
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 刪除確認對話框 Modal -->
+  <div id="deleteConfirmModal" class="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-rose-500/40 w-full max-w-sm rounded-2xl p-5 shadow-2xl space-y-4">
+      <div class="flex items-center gap-2 text-rose-400 border-b border-slate-800 pb-2">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        <h4 class="font-bold text-sm text-slate-100">確認刪除檔案</h4>
+      </div>
+      <p class="text-xs text-slate-300 leading-relaxed">
+        確定要刪除檔案 <strong id="deleteTargetTitleDisplay" class="text-rose-400"></strong> 嗎？<br>
+        <span class="text-slate-500 text-[11px]">刪除後將無法復原此檔案的拍打記錄。</span>
+      </p>
+      <div class="flex justify-end gap-2 pt-2">
+        <button id="btnCancelDelete" class="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition">
+          取消
+        </button>
+        <button id="btnConfirmDelete" class="px-4 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition shadow-md">
+          確認刪除
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 輸出 Modal -->
+  <div id="exportModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 w-full max-w-lg rounded-2xl p-6 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+            <i class="fa-solid fa-file-export text-lg"></i>
+          </div>
+          <div>
+            <h3 class="text-base font-bold text-slate-100">輸出影片與字幕</h3>
+            <p class="text-[11px] text-emerald-400">Web Audio 立體聲直通・支援威力導演色度去背</p>
+          </div>
+        </div>
+        <button onclick="document.getElementById('exportModal').classList.add('hidden')" class="text-slate-400 hover:text-slate-200">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <!-- 解析度與碼率 -->
+      <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-2.5 text-xs">
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="text-slate-400 block mb-1">解析度：</label>
+            <select id="exportResolutionSelect" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-slate-200 focus:outline-none focus:border-cyan-500">
+              <option value="1080p_smooth" selected>1080P Full HD (1920x1080)</option>
+              <option value="720p_fast">720P HD (1280x720 疾速)</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-slate-400 block mb-1">影片碼率 (Bitrate)：</label>
+            <select id="exportBitrateSelect" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-slate-200 focus:outline-none focus:border-cyan-500">
+              <option value="16000000" selected>16 Mbps (超清畫質)</option>
+              <option value="10000000">10 Mbps (標準推薦)</option>
+              <option value="6000000">6 Mbps (輕量流暢)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="space-y-2.5 text-xs text-slate-300">
+        <!-- 輸出按鈕一：威力導演色度去背影片 -->
+        <button id="btnExportChromaVideo" class="w-full p-3.5 rounded-xl bg-slate-950 hover:bg-slate-800 border-2 border-emerald-500/50 hover:border-emerald-400 transition flex items-center justify-between group text-left">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-lg shrink-0">
+              <i class="fa-solid fa-wand-magic-sparkles"></i>
+            </div>
+            <div>
+              <h4 class="font-bold text-emerald-300 text-sm group-hover:text-emerald-200">輸出威力導演去背影片 (含原聲音軌)</h4>
+              <p class="text-[11px] text-slate-400 mt-0.5">綠幕底色去背、中文翻譯套用個人專屬標楷體、立體聲音訊合一。</p>
+            </div>
+          </div>
+          <div class="bg-emerald-600 group-hover:bg-emerald-500 text-white font-bold text-xs px-3 py-1.5 rounded-lg flex items-center gap-1 shadow-sm">
+            <i class="fa-solid fa-file-export"></i>
+            <span>輸出</span>
+          </div>
+        </button>
+
+        <!-- 輸出按鈕二：合成 MV 完整影片 -->
+        <button id="btnExportFullMvVideo" class="w-full p-3.5 rounded-xl bg-slate-950 hover:bg-slate-800 border-2 border-cyan-500/50 hover:border-cyan-400 transition flex items-center justify-between group text-left">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-lg shrink-0">
+              <i class="fa-solid fa-clapperboard"></i>
+            </div>
+            <div>
+              <h4 class="font-bold text-cyan-300 text-sm group-hover:text-cyan-200">輸出合成 MV 完整影片 (畫面+字幕+音訊)</h4>
+              <p class="text-[11px] text-slate-400 mt-0.5">將 MV 影像、伴奏音軌與標楷體翻譯合一硬壓，絕不掉幀。</p>
+            </div>
+          </div>
+          <div class="bg-cyan-600 group-hover:bg-cyan-500 text-white font-bold text-xs px-3 py-1.5 rounded-lg flex items-center gap-1 shadow-sm">
+            <i class="fa-solid fa-file-export"></i>
+            <span>輸出</span>
+          </div>
+        </button>
+
+        <!-- 腳本檔案輸出 -->
+        <div class="pt-2 border-t border-slate-800">
+          <label class="font-semibold text-slate-200 block mb-2">字幕腳本檔輸出：</label>
+          <div class="flex gap-2">
+            <button id="btnExportKSC" class="flex-1 py-2.5 px-3 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-bold transition flex items-center justify-center gap-1.5 shadow-sm">
+              <i class="fa-solid fa-file-code text-amber-400"></i>
+              <span>輸出 .KSC</span>
+            </button>
+            <button id="btnExportASS" class="flex-1 py-2.5 px-3 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-bold transition flex items-center justify-center gap-1.5 shadow-sm">
+              <i class="fa-solid fa-closed-captioning text-rose-400"></i>
+              <span>輸出 .ASS</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 錄製進度條 -->
+        <div id="exportProgressBox" class="hidden space-y-2 pt-2">
+          <div class="flex justify-between text-xs font-mono">
+            <span id="exportProgressLabel" class="text-emerald-400 font-bold">正在超清渲染影片中...</span>
+            <span id="exportProgressPct">0%</span>
+          </div>
+          <div class="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden">
+            <div id="exportProgressBar" class="h-full bg-gradient-to-r from-emerald-500 to-cyan-500 w-0 transition-all duration-75"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end pt-2 border-t border-slate-800">
+        <button onclick="document.getElementById('exportModal').classList.add('hidden')" class="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs font-semibold hover:bg-slate-700 transition">
+          關閉
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast 提示容器 -->
+  <div id="toastContainer" class="fixed bottom-6 right-6 z-50 flex flex-col space-y-2 pointer-events-none"></div>
+
+  <!-- JavaScript 核心 -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, doc, setDoc, getDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    // -------------------------------------------------------------
+    // Firebase 初始化 (雲端同步保險)
+    // -------------------------------------------------------------
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'nom-ktv-app';
+    let firebaseConfig = null;
+    let auth = null;
+    let db = null;
+    let isFirebaseReady = false;
+
+    try {
+      if (typeof __firebase_config !== 'undefined' && __firebase_config) {
+        firebaseConfig = JSON.parse(__firebase_config);
+        const app = initializeApp(firebaseConfig);
+        auth = getAuth(app);
+        db = getFirestore(app);
+        isFirebaseReady = true;
+      }
+    } catch (e) {
+      console.warn("Firebase 未啟用，使用本地強化持久化模式", e);
+    }
+
+    let currentUser = null;
+
+    // -------------------------------------------------------------
+    // IndexedDB 字型持久化快取 (確保重整與關閉瀏覽器後字型不遺失)
+    // -------------------------------------------------------------
+    const FONT_DB_NAME = 'NomKtv_FontCacheDB';
+    const FONT_STORE = 'font_blobs';
+
+    function openFontDB() {
+      return new Promise((resolve) => {
+        const req = indexedDB.open(FONT_DB_NAME, 1);
+        req.onupgradeneeded = () => req.result.createObjectStore(FONT_STORE);
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => resolve(null);
+      });
+    }
+
+    async function persistFont(key, buffer, name) {
+      try {
+        const idb = await openFontDB();
+        if (!idb) return;
+        const tx = idb.transaction(FONT_STORE, 'readwrite');
+        tx.objectStore(FONT_STORE).put({ buffer, name }, key);
+      } catch (e) {
+        console.warn("IndexedDB 字型快取失敗", e);
+      }
+    }
+
+    async function getCachedFont(key) {
+      try {
+        const idb = await openFontDB();
+        if (!idb) return null;
+        return new Promise((resolve) => {
+          const tx = idb.transaction(FONT_STORE, 'readonly');
+          const req = tx.objectStore(FONT_STORE).get(key);
+          req.onsuccess = () => resolve(req.result || null);
+          req.onerror = () => resolve(null);
+        });
+      } catch (e) {
+        return null;
+      }
+    }
+
+    // -------------------------------------------------------------
+    // 核心資料狀態
+    // -------------------------------------------------------------
+    const media = document.getElementById('mediaPlayer');
+    let mediaDuration = 0;
+    let isPlaying = false;
+    let isVideoMode = false;
+    let animationFrameId = null;
+
+    // 系統模式：'nom' (原汁原味喃字模式) | 'kpop' (K-POP 韓語詞組分組 + 專屬標楷體中文翻譯)
+    let appMode = 'nom';
+
+    let projectList = [
+      { id: 'proj_default', title: '〈南國山河〉', mode: 'nom' },
+      { id: 'proj_kpop_demo', title: '〈오늘도 파이팅〉', mode: 'kpop' }
+    ];
+    let currentProjectId = 'proj_default';
+    let currentProjectTitle = '〈南國山河〉';
+
+    let lyricsData = [];
+    let currentLineIndex = 0;
+    let currentCharIndex = 0; // 在韓語模式下代表 currentTokenIndex (詞組索引)
+
+    const canvas = document.getElementById('ktvCanvas');
+    const ctx = canvas.getContext('2d', { alpha: false });
+    let previewBgMode = 'video_or_black';
+    let isExporting = false;
+
+    // Web Audio 節點橋接
+    let audioCtx = null;
+    let audioSourceNode = null;
+    let audioDestNode = null;
+
+    function ensureAudioPipeline() {
+      if (!audioCtx) {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioContextClass();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      if (!audioSourceNode && media) {
+        try {
+          audioSourceNode = audioCtx.createMediaElementSource(media);
+          audioDestNode = audioCtx.createMediaStreamDestination();
+          audioSourceNode.connect(audioCtx.destination);
+          audioSourceNode.connect(audioDestNode);
+        } catch (e) {
+          console.warn("Audio node bridge info:", e);
+        }
+      }
+    }
+
+    // 樣式設定 (含中文翻譯專屬：UserKaiFont 標楷體、號數、描邊與填色)
+    let styleConfig = {
+      fontSize: 84,
+      inFillR: 255, inFillG: 255, inFillB: 255,      // 未唱底色
+      inStrokeR: 0, inStrokeG: 34, inStrokeB: 68,     // 未唱描邊
+      actFillR: 0, actFillG: 240, actFillB: 255,     // 已唱底色
+      actStrokeR: 0, actStrokeG: 68, actStrokeB: 136, // 已唱描邊
+      bgR: 0, bgG: 255, bgB: 0,                      // 去背色
+      transFontSize: 20,                             // 基礎20號字
+      transFillColor: '#FFE600',                     // 填色
+      transStrokeColor: '#990000'                    // 邊框描邊
+    };
+
+    // 原始喃字經典歌詞
+    const DEFAULT_NOM_LYRICS = `南國山河南帝居
+截然定分在天書
+如何逆虜來侵犯
+汝等行看取敗虛`;
+
+    // 韓語示範歌詞
+    const DEFAULT_KPOP_LYRICS = `오늘도 파이팅
+계속해 똑같이 wild and free`;
+
+    const DEFAULT_KPOP_TRANS = `今天也要加油
+繼續肆意自由地前行`;
+
+    let renameTargetId = null;
+    let deleteTargetId = null;
+
+    function formatSongTitle(rawTitle) {
+      let t = (rawTitle || '').trim();
+      if (!t) return '〈未命名歌曲〉';
+      t = t.replace(/^〈|〉$/g, '').trim();
+      return `〈${t}〉`;
+    }
+
+    // 本地快取金鑰
+    const LOCAL_INDEX_KEY = 'nom_ktv_v7_index';
+    const LOCAL_PROJ_PREFIX = 'nom_ktv_v7_proj_';
+
+    function saveToLocalStorage(projId, payload) {
+      try {
+        localStorage.setItem(`${LOCAL_PROJ_PREFIX}${projId}`, JSON.stringify(payload));
+        localStorage.setItem(LOCAL_INDEX_KEY, JSON.stringify({
+          list: projectList,
+          activeId: currentProjectId,
+          appMode: appMode,
+          updatedAt: Date.now()
+        }));
+      } catch (err) {
+        console.warn("LocalStorage 寫入失敗", err);
+      }
+    }
+
+    function loadFromLocalStorage(projId) {
+      try {
+        const raw = localStorage.getItem(`${LOCAL_PROJ_PREFIX}${projId}`);
+        return raw ? JSON.parse(raw) : null;
+      } catch (err) {
+        return null;
+      }
+    }
+
+    // -------------------------------------------------------------
+    // 模式切換邏輯 (嚴格維持喃字原汁原味；韓語模式以詞組為單位 + 套用專屬標楷體翻譯)
+    // -------------------------------------------------------------
+    function applyAppModeUI() {
+      const badgeText = document.getElementById('currentModeBadgeText');
+      const lyricsTitle = document.getElementById('lyricsSectionTitle');
+      const transGroup = document.getElementById('kpopTranslationInputGroup');
+      const transStyleBox = document.getElementById('transStyleContainer');
+      const rawLyricsEl = document.getElementById('rawLyricsInput');
+      const nomFontUploader = document.getElementById('nomFontUploaderContainer');
+      const kaiFontUploader = document.getElementById('kaiFontUploaderContainer');
+      const btnUndoText = document.getElementById('btnUndoText');
+      const tapWordBtnDesc = document.getElementById('tapWordBtnDesc');
+      const tapHint = document.getElementById('tapModeHintBadge');
+
+      if (appMode === 'kpop') {
+        badgeText.textContent = 'K-POP 韓語詞組模式';
+        lyricsTitle.innerHTML = '<i class="fa-solid fa-music text-pink-400"></i> 2. K-POP 韓文歌詞 (以空格自動分組)';
+        transGroup.classList.remove('hidden');
+        transStyleBox.classList.remove('hidden');
+        if (nomFontUploader) nomFontUploader.classList.add('hidden');
+        if (kaiFontUploader) kaiFontUploader.classList.remove('hidden');
+        rawLyricsEl.placeholder = '請貼上韓文主歌詞，一行一句 (單詞間以空格隔開，例如：오늘도 파이팅)...';
+        rawLyricsEl.className = 'w-full h-20 p-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs sm:text-sm font-kpop-kr text-slate-200 placeholder-slate-600 focus:outline-none focus:border-pink-500 transition leading-relaxed resize-none';
+        btnUndoText.textContent = '倒退一組 (BS)';
+        tapWordBtnDesc.textContent = '每唱一組按一下 (如: 오늘도 / 파이팅)・唱完自動跳句';
+        tapHint.textContent = '✨ 韓語按詞組拍打製作・中文翻譯套用個人專屬標楷體！';
+      } else {
+        badgeText.textContent = '喃字 KTV 模式';
+        lyricsTitle.innerHTML = '<i class="fa-solid fa-align-left text-rose-400"></i> 2. 喃字歌詞';
+        transGroup.classList.add('hidden');
+        transStyleBox.classList.add('hidden');
+        if (nomFontUploader) nomFontUploader.classList.remove('hidden');
+        if (kaiFontUploader) kaiFontUploader.classList.add('hidden');
+        rawLyricsEl.placeholder = '請貼上喃字歌詞，一行一句...';
+        rawLyricsEl.className = 'w-full h-20 p-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs sm:text-sm font-nom text-slate-200 placeholder-slate-600 focus:outline-none focus:border-rose-500 transition leading-relaxed resize-none';
+        btnUndoText.textContent = '倒退一字 (BS)';
+        tapWordBtnDesc.textContent = '每唱一字按一下・唱完自動無縫跳下一句';
+        tapHint.textContent = '✨ 字距鎖定、絕對零位移、防誤觸隔離！';
+      }
+
+      renderCanvas();
+      updateTapUI();
+    }
+
+    function toggleSystemMode() {
+      appMode = (appMode === 'nom') ? 'kpop' : 'nom';
+
+      if (appMode === 'kpop') {
+        if (!document.getElementById('rawLyricsInput').value.trim() || document.getElementById('rawLyricsInput').value === DEFAULT_NOM_LYRICS) {
+          document.getElementById('rawLyricsInput').value = DEFAULT_KPOP_LYRICS;
+          document.getElementById('rawTranslationInput').value = DEFAULT_KPOP_TRANS;
+          currentProjectTitle = '〈오늘도 파이팅〉';
+          parseLyrics(DEFAULT_KPOP_LYRICS, false);
+        } else {
+          parseLyrics(document.getElementById('rawLyricsInput').value, false);
+        }
+        showToast('已切換至【K-POP 韓語詞組模式】(左上方套用專屬標楷體翻譯)', 'success');
+      } else {
+        if (!document.getElementById('rawLyricsInput').value.trim() || document.getElementById('rawLyricsInput').value === DEFAULT_KPOP_LYRICS) {
+          document.getElementById('rawLyricsInput').value = DEFAULT_NOM_LYRICS;
+          currentProjectTitle = '〈南國山河〉';
+          parseLyrics(DEFAULT_NOM_LYRICS, false);
+        } else {
+          parseLyrics(document.getElementById('rawLyricsInput').value, false);
+        }
+        showToast('已切換回【喃字 KTV 模式】(單字單拍)', 'info');
+      }
+
+      applyAppModeUI();
+      saveCurrentProject(false);
+    }
+
+    // -------------------------------------------------------------
+    // 初始化入口
+    // -------------------------------------------------------------
+    window.addEventListener('DOMContentLoaded', async () => {
+      initRGBInputs();
+      initTranslationStyleInputs();
+      initMediaHandlers();
+      initAntiJitterTappingEngine();
+      setupFontLoader();
+      setupKaiFontLoader();
+      setupProjectManagerUI();
+      initExportButtons();
+
+      document.getElementById('btnToggleSystemMode').addEventListener('click', toggleSystemMode);
+
+      restoreLocalState();
+
+      // 檢查並還原 IndexedDB 字型
+      restoreCachedFonts();
+
+      window.addEventListener('beforeunload', () => {
+        saveCurrentProject(false);
+      });
+    });
+
+    async function restoreCachedFonts() {
+      // 1. 還原專屬標楷體
+      const cachedKai = await getCachedFont('kaiFont');
+      if (cachedKai && cachedKai.buffer) {
+        try {
+          const kaiFace = new FontFace('UserKaiFont', cachedKai.buffer);
+          await kaiFace.load();
+          document.fonts.add(kaiFace);
+          document.getElementById('kaiFileName').textContent = cachedKai.name || '個人專屬標楷體 (已套用)';
+          document.getElementById('kaiFileName').classList.add('text-emerald-400');
+          const badge = document.getElementById('kaiFontStatusBadge');
+          if (badge) {
+            badge.textContent = '專屬字型已載入';
+            badge.className = 'text-[10px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20';
+          }
+          renderCanvas();
+        } catch (err) {
+          console.warn("還原標楷體失敗:", err);
+        }
+      }
+
+      // 2. 還原喃字字型
+      const cachedNom = await getCachedFont('nomFont');
+      if (cachedNom && cachedNom.buffer) {
+        try {
+          const nomFace = new FontFace('UserNomFont', cachedNom.buffer);
+          await nomFace.load();
+          document.fonts.add(nomFace);
+          document.getElementById('fontFileName').textContent = cachedNom.name;
+          document.getElementById('fontFileName').classList.add('text-cyan-400');
+          const badge = document.getElementById('fontStatusBadge');
+          if (badge) {
+            badge.textContent = '已載入字型';
+            badge.className = 'text-[10px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20';
+          }
+          renderCanvas();
+        } catch (err) {
+          console.warn("還原喃字失敗:", err);
+        }
+      }
+    }
+
+    function restoreLocalState() {
+      try {
+        const localIndexRaw = localStorage.getItem(LOCAL_INDEX_KEY);
+        if (localIndexRaw) {
+          const localIndex = JSON.parse(localIndexRaw);
+          if (localIndex.appMode) {
+            appMode = localIndex.appMode;
+          }
+          if (Array.isArray(localIndex.list) && localIndex.list.length > 0) {
+            projectList = localIndex.list;
+            const targetId = localIndex.activeId || projectList[0].id;
+            const restored = loadProjectDirect(targetId);
+            if (restored) {
+              applyAppModeUI();
+              return;
+            }
+          }
+        }
+      } catch (e) {
+        console.warn("本地還原失敗:", e);
+      }
+
+      currentProjectId = 'proj_default';
+      currentProjectTitle = '〈南國山河〉';
+      document.getElementById('rawLyricsInput').value = DEFAULT_NOM_LYRICS;
+      parseLyrics(DEFAULT_NOM_LYRICS, false);
+      applyAppModeUI();
+      saveCurrentProject(false);
+    }
+
+    async function saveCurrentProject(isManual = false) {
+      const payload = {
+        id: currentProjectId,
+        title: currentProjectTitle,
+        mode: appMode,
+        updatedAt: Date.now(),
+        styleConfig: styleConfig,
+        rawLyrics: document.getElementById('rawLyricsInput').value,
+        rawTranslation: document.getElementById('rawTranslationInput').value,
+        lyricsData: JSON.stringify(lyricsData),
+        currentLineIndex: currentLineIndex
+      };
+
+      const existingIdx = projectList.findIndex(p => p.id === currentProjectId);
+      if (existingIdx >= 0) {
+        projectList[existingIdx].title = currentProjectTitle;
+        projectList[existingIdx].mode = appMode;
+        projectList[existingIdx].updatedAt = Date.now();
+      } else {
+        projectList.push({ id: currentProjectId, title: currentProjectTitle, mode: appMode, updatedAt: Date.now() });
+      }
+
+      saveToLocalStorage(currentProjectId, payload);
+
+      if (currentUser && isFirebaseReady) {
+        try {
+          const docRef = doc(db, 'artifacts', appId, 'public', 'data', currentProjectId);
+          await setDoc(docRef, payload, { merge: true });
+
+          const indexRef = doc(db, 'artifacts', appId, 'public', 'data', 'nom_ktv_index');
+          await setDoc(indexRef, {
+            list: projectList,
+            activeId: currentProjectId,
+            appMode: appMode,
+            updatedAt: Date.now()
+          }, { merge: true });
+        } catch (err) {
+          console.error("雲端同步失敗:", err);
+        }
+      }
+
+      if (isManual) {
+        showToast(`已成功儲存檔案：${currentProjectTitle}`, 'success');
+      }
+    }
+
+    function loadProjectDirect(projId) {
+      const data = loadFromLocalStorage(projId);
+      if (!data) return false;
+
+      currentProjectId = data.id || projId;
+      currentProjectTitle = formatSongTitle(data.title || '〈未命名歌曲〉');
+      if (data.mode) appMode = data.mode;
+
+      if (data.styleConfig) {
+        styleConfig = { ...styleConfig, ...data.styleConfig };
+        applyStyleToInputs();
+      }
+      if (data.rawLyrics) {
+        document.getElementById('rawLyricsInput').value = data.rawLyrics;
+      }
+      if (data.rawTranslation) {
+        document.getElementById('rawTranslationInput').value = data.rawTranslation;
+      }
+      if (data.lyricsData) {
+        lyricsData = JSON.parse(data.lyricsData);
+      } else if (data.rawLyrics) {
+        parseLyrics(data.rawLyrics, false);
+      }
+
+      currentLineIndex = data.currentLineIndex || 0;
+      currentCharIndex = 0;
+      applyAppModeUI();
+      updateTapUI();
+      renderTimingTable();
+      renderCanvas();
+      return true;
+    }
+
+    async function loadProject(projId) {
+      if (currentUser && isFirebaseReady) {
+        try {
+          const docRef = doc(db, 'artifacts', appId, 'public', 'data', projId);
+          const snap = await getDoc(docRef);
+          if (snap.exists()) {
+            const data = snap.data();
+            currentProjectId = data.id || projId;
+            currentProjectTitle = formatSongTitle(data.title || '〈未命名歌曲〉');
+            if (data.mode) appMode = data.mode;
+
+            if (data.styleConfig) {
+              styleConfig = { ...styleConfig, ...data.styleConfig };
+              applyStyleToInputs();
+            }
+            if (data.rawLyrics) {
+              document.getElementById('rawLyricsInput').value = data.rawLyrics;
+            }
+            if (data.rawTranslation) {
+              document.getElementById('rawTranslationInput').value = data.rawTranslation;
+            }
+            if (data.lyricsData) {
+              lyricsData = JSON.parse(data.lyricsData);
+            } else if (data.rawLyrics) {
+              parseLyrics(data.rawLyrics, false);
+            }
+
+            currentLineIndex = data.currentLineIndex || 0;
+            currentCharIndex = 0;
+            applyAppModeUI();
+            updateTapUI();
+            renderTimingTable();
+            renderCanvas();
+            saveToLocalStorage(currentProjectId, data);
+            return;
+          }
+        } catch (err) {
+          console.warn("雲端載入失敗，載入本機備份:", err);
+        }
+      }
+
+      loadProjectDirect(projId);
+    }
+
+    // -------------------------------------------------------------
+    // 解析歌詞核心：韓語模式以「空格詞組」為單元；喃字模式以「單字」為單元
+    // -------------------------------------------------------------
+    function parseLyrics(text, shouldSave = true) {
+      const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+      const transLines = (document.getElementById('rawTranslationInput').value || '')
+        .split('\n')
+        .map(t => t.trim());
+
+      lyricsData = lines.map((lineStr, lineIdx) => {
+        let tokens = [];
+
+        if (appMode === 'kpop') {
+          // 韓語模式：以空格拆分為詞組單元 (例如："오늘도 파이팅" -> ["오늘도", "파이팅"])
+          const rawTokens = lineStr.split(/\s+/).filter(t => t.length > 0);
+          tokens = rawTokens.map(tok => ({
+            char: tok,
+            start: null,
+            end: null
+          }));
+        } else {
+          // 喃字模式：以單一文字為單元
+          const charTokens = Array.from(lineStr);
+          tokens = charTokens.map(ch => ({
+            char: ch,
+            start: null,
+            end: null
+          }));
+        }
+
+        return {
+          id: lineIdx,
+          text: lineStr,
+          translation: transLines[lineIdx] || '',
+          chars: tokens,
+          lineStart: null,
+          lineEnd: null
+        };
+      });
+
+      currentLineIndex = 0;
+      currentCharIndex = 0;
+      updateTapUI();
+      renderTimingTable();
+      renderCanvas();
+      if (shouldSave) saveCurrentProject();
+    }
+
+    document.getElementById('btnParseLyrics').addEventListener('click', () => {
+      const text = document.getElementById('rawLyricsInput').value;
+      if (!text.trim()) {
+        showToast('請貼上歌詞', 'info');
+        return;
+      }
+      parseLyrics(text);
+      showToast(appMode === 'kpop' ? '韓文歌詞已成功依詞組分組！' : '喃字歌詞已成功解析單字！', 'success');
+    });
+
+    document.getElementById('rawTranslationInput').addEventListener('input', () => {
+      const transLines = document.getElementById('rawTranslationInput').value.split('\n').map(t => t.trim());
+      lyricsData.forEach((line, idx) => {
+        line.translation = transLines[idx] || '';
+      });
+      renderTimingTable();
+      renderCanvas();
+      saveCurrentProject();
+    });
+
+    // -------------------------------------------------------------
+    // 16:9 KTV 舞台畫布渲染核心
+    // -------------------------------------------------------------
+    function renderCanvas() {
+      const curTime = media.currentTime;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      if (previewBgMode === 'video_or_black') {
+        if (isVideoMode && media.readyState >= 2) {
+          ctx.drawImage(media, 0, 0, canvas.width, canvas.height);
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+        } else {
+          ctx.fillStyle = '#05070E';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+      } else {
+        ctx.fillStyle = `rgb(${styleConfig.bgR}, ${styleConfig.bgG}, ${styleConfig.bgB})`;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      }
+
+      if (lyricsData.length === 0) {
+        ctx.fillStyle = '#64748b';
+        ctx.font = 'bold 44px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('請貼上歌詞開始製作', canvas.width / 2, canvas.height / 2);
+        return;
+      }
+
+      const inFillColor = `rgb(${styleConfig.inFillR}, ${styleConfig.inFillG}, ${styleConfig.inFillB})`;
+      const inStrokeColor = `rgb(${styleConfig.inStrokeR}, ${styleConfig.inStrokeG}, ${styleConfig.inStrokeB})`;
+      const actFillColor = `rgb(${styleConfig.actFillR}, ${styleConfig.actFillG}, ${styleConfig.actFillB})`;
+      const actStrokeColor = `rgb(${styleConfig.actStrokeR}, ${styleConfig.actStrokeG}, ${styleConfig.actStrokeB})`;
+      const fSize = styleConfig.fontSize;
+
+      let yBottom = (appMode === 'kpop') ? (1080 - 90) : (1080 - (fSize * 0.8));
+      let yTop = (appMode === 'kpop') ? (1080 - 195) : (1080 - (fSize * 2.2));
+
+      const activeLineA = getSlotDisplayLine(true, curTime);
+      const activeLineB = getSlotDisplayLine(false, curTime);
+
+      const marginSide = (appMode === 'kpop') ? 200 : 160;
+
+      if (activeLineA) {
+        drawLineKaraoke(activeLineA, curTime, marginSide, yTop, 'left', inFillColor, inStrokeColor, actFillColor, actStrokeColor, fSize);
+      }
+
+      if (activeLineB) {
+        drawLineKaraoke(activeLineB, curTime, canvas.width - marginSide, yBottom, 'right', inFillColor, inStrokeColor, actFillColor, actStrokeColor, fSize);
+      }
+
+      // K-POP 模式專用：左上方專屬標楷體中文翻譯
+      if (appMode === 'kpop') {
+        renderTopLeftKpopTranslation(curTime);
+      }
+
+      // 4 顆大藍燈
+      renderTopBlueCountdownLights(curTime, fSize, yTop, yBottom, marginSide);
+    }
+
+    // -------------------------------------------------------------
+    // 左上方中文翻譯渲染 (專屬標楷體 UserKaiFont + 自訂號數 + 邊框/填色)
+    // -------------------------------------------------------------
+    function renderTopLeftKpopTranslation(curTime) {
+      let targetLine = null;
+
+      for (let i = 0; i < lyricsData.length; i++) {
+        const line = lyricsData[i];
+        if (line.lineStart !== null) {
+          const leadIn = Math.max(0, line.lineStart - 3.0);
+          const leadOut = (line.lineEnd || line.lineStart + 3.0) + 1.5;
+          if (curTime >= leadIn && curTime < leadOut) {
+            targetLine = line;
+            break;
+          }
+        }
+      }
+
+      if (!targetLine) {
+        targetLine = lyricsData[currentLineIndex] || lyricsData[0];
+      }
+
+      if (!targetLine || !targetLine.translation) return;
+
+      const transText = `♪  ${targetLine.translation}`;
+      const posX = 70;
+      
+      // 字號換算：以 20 號字為基準換算畫布高清晰度 px
+      const ptSize = styleConfig.transFontSize || 20;
+      const transFontSizePx = Math.round(ptSize * 2.5);
+      const posY = 60 + transFontSizePx;
+
+      ctx.save();
+      // 嚴格優先套用 UserKaiFont (使用者專屬標楷體)
+      ctx.font = `bold ${transFontSizePx}px "UserKaiFont", "DFKai-SB", "BiauKai", "KaiTi", "標楷體", serif`;
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'alphabetic';
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
+
+      // 1. 文字邊框 (Stroke)
+      const strokeWidth = Math.max(4, Math.round(transFontSizePx * 0.16));
+      ctx.lineWidth = strokeWidth;
+      ctx.strokeStyle = styleConfig.transStrokeColor || '#990000';
+      ctx.strokeText(transText, posX, posY);
+
+      // 2. 裡面填色 (Fill)
+      ctx.fillStyle = styleConfig.transFillColor || '#FFE600';
+      ctx.fillText(transText, posX, posY);
+
+      ctx.restore();
+    }
+
+    // -------------------------------------------------------------
+    // 繪製單行 KTV 字幕
+    // -------------------------------------------------------------
+    function drawLineKaraoke(line, curTime, posX, posY, align, inFill, inStroke, actFill, actStroke, fontSize) {
+      const fontName = (appMode === 'kpop')
+        ? '"Microsoft JhengHei", "微軟正黑體", "Malgun Gothic", "Noto Sans KR", sans-serif'
+        : 'UserNomFont, NomFont, "HAN NOM A", "HAN NOM B", serif, sans-serif';
+      
+      ctx.font = `bold ${fontSize}px ${fontName}`;
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'alphabetic';
+
+      const spaceGap = (appMode === 'kpop') ? Math.round(fontSize * 0.35) : 0;
+
+      let totalWidth = 0;
+      const tokenWidths = line.chars.map((c, idx) => {
+        const w = ctx.measureText(c.char).width;
+        totalWidth += w;
+        if (idx < line.chars.length - 1) totalWidth += spaceGap;
+        return w;
+      });
+
+      let startX = posX;
+      if (align === 'right') {
+        startX = posX - totalWidth;
+      }
+
+      let cursorX = startX;
+      const strokeW = Math.max(6, Math.round(fontSize * 0.16));
+
+      line.chars.forEach((c, i) => {
+        const tokW = tokenWidths[i];
+
+        let wipeProgress = 0;
+        if (c.start !== null && c.end !== null) {
+          if (curTime >= c.end) {
+            wipeProgress = 1.0;
+          } else if (curTime > c.start) {
+            const dur = c.end - c.start;
+            wipeProgress = dur > 0 ? (curTime - c.start) / dur : 1.0;
+          }
+        } else if (c.start !== null && curTime >= c.start) {
+          wipeProgress = Math.min(1.0, (curTime - c.start) / 0.5);
+        }
+
+        // 1. 底層：未唱單詞/字
+        ctx.save();
+        ctx.font = `bold ${fontSize}px ${fontName}`;
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'alphabetic';
+        ctx.lineJoin = 'round';
+        ctx.lineCap = 'round';
+        ctx.lineWidth = strokeW;
+        ctx.strokeStyle = inStroke;
+        ctx.strokeText(c.char, cursorX, posY);
+        ctx.fillStyle = inFill;
+        ctx.fillText(c.char, cursorX, posY);
+        ctx.restore();
+
+        // 2. 頂層：擦除變色
+        if (wipeProgress > 0) {
+          ctx.save();
+          ctx.font = `bold ${fontSize}px ${fontName}`;
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'alphabetic';
+          ctx.lineJoin = 'round';
+          ctx.lineCap = 'round';
+
+          ctx.beginPath();
+          const clipLeft = cursorX - strokeW;
+          const clipTop = posY - fontSize * 1.35;
+          const fullW = tokW + strokeW * 2;
+          const clipW = fullW * Math.min(1.0, Math.max(0.0, wipeProgress));
+          const clipH = fontSize * 1.8;
+          ctx.rect(clipLeft, clipTop, clipW, clipH);
+          ctx.clip();
+
+          ctx.lineWidth = strokeW;
+          ctx.strokeStyle = actStroke;
+          ctx.strokeText(c.char, cursorX, posY);
+
+          ctx.fillStyle = actFill;
+          ctx.fillText(c.char, cursorX, posY);
+          ctx.restore();
+        }
+
+        cursorX += tokW + spaceGap;
+      });
+    }
+
+    // -------------------------------------------------------------
+    // 字頂大藍燈提示
+    // -------------------------------------------------------------
+    function renderTopBlueCountdownLights(curTime, fontSize, yTop, yBottom, marginSide) {
+      if (lyricsData.length === 0) return;
+
+      let upcomingIdx = -1;
+      let upcomingLine = null;
+
+      for (let i = 0; i < lyricsData.length; i++) {
+        const line = lyricsData[i];
+        if (line.lineStart !== null && line.lineStart > curTime && (line.lineStart - curTime) <= 3.0) {
+          upcomingIdx = i;
+          upcomingLine = line;
+          break;
+        }
+      }
+
+      if (!upcomingLine || upcomingIdx === -1) return;
+
+      let restDuration = 0;
+      if (upcomingIdx === 0) {
+        restDuration = upcomingLine.lineStart;
+      } else {
+        const prevLine = lyricsData[upcomingIdx - 1];
+        if (prevLine && prevLine.lineStart !== null) {
+          const prevEnd = prevLine.lineEnd !== null 
+            ? prevLine.lineEnd 
+            : (prevLine.chars[prevLine.chars.length - 1]?.end || (prevLine.lineStart + 3.0));
+          restDuration = upcomingLine.lineStart - prevEnd;
+        }
+      }
+
+      if (restDuration < 7.5) return;
+
+      const remainingSec = upcomingLine.lineStart - curTime;
+      if (remainingSec <= 0.3) return;
+
+      const firstChar = upcomingLine.chars[0];
+      if (firstChar && firstChar.start !== null && curTime >= firstChar.start) return;
+
+      let activeDotsCount = 0;
+      if (remainingSec > 2.25) {
+        activeDotsCount = 4;
+      } else if (remainingSec > 1.5) {
+        activeDotsCount = 3;
+      } else if (remainingSec > 0.75) {
+        activeDotsCount = 2;
+      } else if (remainingSec > 0.3) {
+        activeDotsCount = 1;
+      }
+
+      if (activeDotsCount <= 0) return;
+
+      const dotRadius = Math.max(18, Math.round(fontSize * 0.22));
+      const dotGap = dotRadius * 2.8;
+
+      const isTopSlot = (upcomingIdx % 2 === 0);
+      const lineBaseY = isTopSlot ? yTop : yBottom;
+      const dotY = lineBaseY - fontSize - dotRadius - 12;
+
+      let startX = marginSide + dotRadius;
+      if (!isTopSlot) {
+        const fontName = (appMode === 'kpop')
+          ? '"Microsoft JhengHei", sans-serif'
+          : 'UserNomFont, NomFont, serif';
+        ctx.font = `bold ${fontSize}px ${fontName}`;
+        const spaceGap = (appMode === 'kpop') ? Math.round(fontSize * 0.35) : 0;
+        let totalW = 0;
+        upcomingLine.chars.forEach((c, idx) => {
+          totalW += ctx.measureText(c.char).width;
+          if (idx < upcomingLine.chars.length - 1) totalW += spaceGap;
+        });
+        startX = (canvas.width - marginSide - totalW) + dotRadius;
+      }
+
+      for (let d = 0; d < 4; d++) {
+        if (d < activeDotsCount) {
+          const currentX = startX + (d * dotGap);
+          ctx.save();
+
+          ctx.beginPath();
+          ctx.arc(currentX, dotY, dotRadius + 6, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(0, 0, 200, 0.45)';
+          ctx.fill();
+
+          ctx.beginPath();
+          ctx.arc(currentX, dotY, dotRadius, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgb(0, 0, 200)';
+          ctx.fill();
+
+          ctx.strokeStyle = '#FFFFFF';
+          ctx.lineWidth = 4;
+          ctx.stroke();
+
+          ctx.restore();
+        }
+      }
+    }
+
+    function getSlotDisplayLine(isEvenSlot, curTime) {
+      if (lyricsData.length === 0) return null;
+
+      const candidateIndices = [];
+      for (let i = (isEvenSlot ? 0 : 1); i < lyricsData.length; i += 2) {
+        candidateIndices.push(i);
+      }
+      if (candidateIndices.length === 0) return null;
+
+      const hasAnyTiming = lyricsData.some(l => l.lineStart !== null);
+      if (!hasAnyTiming) {
+        const defaultIdx = isEvenSlot 
+          ? (currentLineIndex % 2 === 0 ? currentLineIndex : currentLineIndex - 1)
+          : (currentLineIndex % 2 === 1 ? currentLineIndex : currentLineIndex + 1);
+        return lyricsData[defaultIdx] || null;
+      }
+
+      let chosenIdx = -1;
+
+      for (let k = 0; k < candidateIndices.length; k++) {
+        const idx = candidateIndices[k];
+        const line = lyricsData[idx];
+        if (line.lineStart === null) continue;
+
+        const nextIdx = (k + 1 < candidateIndices.length) ? candidateIndices[k + 1] : -1;
+        const nextLine = nextIdx >= 0 ? lyricsData[nextIdx] : null;
+
+        const appearTime = Math.max(0, line.lineStart - 3.0);
+        const effectiveEnd = (line.lineEnd !== null) ? line.lineEnd : (line.lineStart + 4.0);
+        let disappearTime = effectiveEnd + 2.0;
+
+        if (nextLine && nextLine.lineStart !== null) {
+          const nextLeadTime = Math.max(effectiveEnd + 0.3, nextLine.lineStart - 3.0);
+          disappearTime = nextLeadTime;
+        }
+
+        if (curTime >= appearTime && curTime < disappearTime) {
+          chosenIdx = idx;
+          break;
+        } else if (curTime >= disappearTime && k === candidateIndices.length - 1) {
+          if (curTime < disappearTime + 3.0) chosenIdx = idx;
+        }
+      }
+
+      return (chosenIdx >= 0) ? lyricsData[chosenIdx] : null;
+    }
+
+    function startRenderLoop() {
+      function loop() {
+        if (isPlaying && !isExporting) {
+          renderCanvas();
+          animationFrameId = requestAnimationFrame(loop);
+        }
+      }
+      if (animationFrameId) cancelAnimationFrame(animationFrameId);
+      animationFrameId = requestAnimationFrame(loop);
+    }
+
+    // -------------------------------------------------------------
+    // 輸出邏輯
+    // -------------------------------------------------------------
+    function triggerDownloadKSC() {
+      if (lyricsData.length === 0 || !lyricsData.some(l => l.lineStart !== null)) {
+        showToast('目前尚無拍打完成的時間記錄可供輸出！', 'info');
+        return;
+      }
+      let ksc = `; ${appMode === 'kpop' ? 'K-POP' : '喃字'} KTV 小灰熊腳本檔\n[KSC]\nTitle=${currentProjectTitle}\n`;
+      lyricsData.forEach(line => {
+        if (line.lineStart === null) return;
+        let lineStr = `karaoke.add('${formatKscTime(line.lineStart)}', '${formatKscTime(line.lineEnd || line.lineStart + 3)}', '${line.text}', '`;
+        const durations = line.chars.map(c => {
+          return (c.start !== null && c.end !== null) ? Math.round((c.end - c.start) * 1000) : 300;
+        });
+        lineStr += durations.join(',') + "');\n";
+        ksc += lineStr;
+      });
+      downloadFile(ksc, `${currentProjectTitle}_lyrics.ksc`, 'text/plain');
+      showToast('已成功輸出 .KSC 小灰熊腳本！', 'success');
+    }
+
+    function triggerDownloadASS() {
+      if (lyricsData.length === 0 || !lyricsData.some(l => l.lineStart !== null)) {
+        showToast('目前尚無拍打完成的時間記錄可供輸出！', 'info');
+        return;
+      }
+      const fontName = (appMode === 'kpop') ? 'Microsoft JhengHei' : 'NomFont';
+      let ass = `[Script Info]\nTitle: ${currentProjectTitle}\nScriptType: v4.00+\nPlayResX: 1920\nPlayResY: 1080\n\n[V4+ Styles]\nFormat: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\nStyle: KTV,${fontName},${styleConfig.fontSize},&H00FFFFFF,&H0000F0FF,&H00002244,&H00000000,-1,0,0,0,100,100,0,0,1,6,0,2,160,160,80,1\nStyle: Trans,UserKaiFont,${Math.round((styleConfig.transFontSize || 20) * 2.5)},&H00${styleConfig.transFillColor.replace('#','').match(/.{2}/g).reverse().join('')},&H00000000,&H00${styleConfig.transStrokeColor.replace('#','').match(/.{2}/g).reverse().join('')},&H00000000,-1,0,0,0,100,100,0,0,1,4,0,7,70,70,60,1\n\n[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n`;
+      lyricsData.forEach(line => {
+        if (line.lineStart === null) return;
+        let kText = '';
+        line.chars.forEach((c, idx) => {
+          const durCs = (c.start !== null && c.end !== null) ? Math.round((c.end - c.start) * 100) : 30;
+          const space = (appMode === 'kpop' && idx < line.chars.length - 1) ? ' ' : '';
+          kText += `{\\k${durCs}}${c.char}${space}`;
+        });
+        const lineStartStr = formatAssTime(line.lineStart);
+        const lineEndStr = formatAssTime(line.lineEnd || line.lineStart + 3);
+        ass += `Dialogue: 0,${lineStartStr},${lineEndStr},KTV,,0,0,0,,${kText}\n`;
+
+        if (appMode === 'kpop' && line.translation) {
+          ass += `Dialogue: 1,${lineStartStr},${lineEndStr},Trans,,0,0,0,,♪  ${line.translation}\n`;
+        }
+      });
+      downloadFile(ass, `${currentProjectTitle}_subtitles.ass`, 'text/plain');
+      showToast('已成功輸出 .ASS 卡拉OK字幕檔 (含標楷體翻譯)！', 'success');
+    }
+
+    function initExportButtons() {
+      // 導航列【輸出】
+      document.getElementById('btnOpenExportModal').addEventListener('click', () => {
+        ensureAudioPipeline();
+        document.getElementById('exportModal').classList.remove('hidden');
+      });
+
+      // 畫布右上角【輸出影片】快捷鍵
+      document.getElementById('btnDirectDownloadVideo').addEventListener('click', () => {
+        ensureAudioPipeline();
+        document.getElementById('exportModal').classList.remove('hidden');
+      });
+
+      // 左側面板快捷鍵
+      document.getElementById('btnQuickExportKSC').addEventListener('click', triggerDownloadKSC);
+      document.getElementById('btnQuickExportASS').addEventListener('click', triggerDownloadASS);
+
+      // Modal 內按鈕
+      document.getElementById('btnExportChromaVideo').addEventListener('click', () => {
+        startHighQualityVideoRendering('video_chroma_rgb');
+      });
+
+      document.getElementById('btnExportFullMvVideo').addEventListener('click', () => {
+        startHighQualityVideoRendering('video_with_mv');
+      });
+
+      document.getElementById('btnExportKSC').addEventListener('click', triggerDownloadKSC);
+      document.getElementById('btnExportASS').addEventListener('click', triggerDownloadASS);
+    }
+
+    function formatKscTime(sec) {
+      if (isNaN(sec)) sec = 0;
+      const m = Math.floor(sec / 60);
+      const s = Math.floor(sec % 60);
+      const ms = Math.floor((sec % 1) * 1000);
+      return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}.${String(ms).padStart(3, '0')}`;
+    }
+
+    function formatAssTime(sec) {
+      if (isNaN(sec)) sec = 0;
+      const h = Math.floor(sec / 3600);
+      const m = Math.floor((sec % 3600) / 60);
+      const s = Math.floor(sec % 60);
+      const cs = Math.floor((sec % 1) * 100);
+      return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}.${String(cs).padStart(2, '0')}`;
+    }
+
+    function downloadFile(content, fileName, mimeType) {
+      const blob = new Blob([content], { type: mimeType });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 200);
+    }
+
+    // -------------------------------------------------------------
+    // 超清高碼率無掉幀渲染核心
+    // -------------------------------------------------------------
+    function startHighQualityVideoRendering(exportType) {
+      if (!media.src) {
+        showToast('請先上傳歌曲或影片，再進行輸出！', 'info');
+        return;
+      }
+
+      ensureAudioPipeline();
+
+      isExporting = true;
+      const origBgMode = previewBgMode;
+      previewBgMode = (exportType === 'video_chroma_rgb') ? 'rgb_chroma' : 'video_or_black';
+
+      const progressBox = document.getElementById('exportProgressBox');
+      const progressBar = document.getElementById('exportProgressBar');
+      const progressPct = document.getElementById('exportProgressPct');
+      const progressLabel = document.getElementById('exportProgressLabel');
+      
+      const resMode = document.getElementById('exportResolutionSelect').value;
+      const targetBitrate = parseInt(document.getElementById('exportBitrateSelect').value) || 16000000;
+
+      if (resMode === '720p_fast') {
+        canvas.width = 1280;
+        canvas.height = 720;
+      } else {
+        canvas.width = 1920;
+        canvas.height = 1080;
+      }
+
+      progressLabel.textContent = (exportType === 'video_chroma_rgb') 
+        ? '正在渲染威力導演去背影片檔...' 
+        : '正在合成 1080P MV 完整影片檔...';
+      progressBox.classList.remove('hidden');
+
+      const canvasStream = canvas.captureStream(30);
+
+      let combinedTracks = [...canvasStream.getVideoTracks()];
+      if (audioDestNode && audioDestNode.stream && audioDestNode.stream.getAudioTracks().length > 0) {
+        combinedTracks.push(...audioDestNode.stream.getAudioTracks());
+      }
+      const combinedStream = new MediaStream(combinedTracks);
+
+      const candidateTypes = [
+        'video/mp4;codecs=avc1,mp4a.40.2',
+        'video/mp4',
+        'video/webm;codecs=h264,opus',
+        'video/webm;codecs=vp8,opus',
+        'video/webm;codecs=vp8',
+        'video/webm'
+      ];
+
+      let chosenMime = '';
+      for (const t of candidateTypes) {
+        if (MediaRecorder.isTypeSupported(t)) {
+          chosenMime = t;
+          break;
+        }
+      }
+
+      const recorderOptions = {
+        videoBitsPerSecond: targetBitrate,
+        audioBitsPerSecond: 256000
+      };
+      if (chosenMime) {
+        recorderOptions.mimeType = chosenMime;
+      }
+
+      let recorder;
+      try {
+        recorder = new MediaRecorder(combinedStream, recorderOptions);
+      } catch (e) {
+        recorder = new MediaRecorder(combinedStream);
+      }
+
+      const chunks = [];
+      recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+
+      let exportLoopId = null;
+
+      recorder.onstop = () => {
+        if (exportLoopId) cancelAnimationFrame(exportLoopId);
+        
+        const blob = new Blob(chunks, { type: recorder.mimeType || 'video/webm' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        const isMp4 = recorder.mimeType && recorder.mimeType.includes('mp4');
+        const ext = isMp4 ? 'mp4' : 'webm';
+        a.download = `${currentProjectTitle}_${exportType === 'video_chroma_rgb' ? '去背字幕檔' : 'MV合成檔'}.${ext}`;
+        document.body.appendChild(a);
+        a.click();
+
+        setTimeout(() => {
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          canvas.width = 1920;
+          canvas.height = 1080;
+          previewBgMode = origBgMode;
+          isExporting = false;
+          progressBox.classList.add('hidden');
+          renderCanvas();
+          showToast(`輸出完成！已成功儲存檔案：${currentProjectTitle}`, 'success');
+          document.getElementById('exportModal').classList.add('hidden');
+        }, 1200);
+      };
+
+      media.pause();
+      media.currentTime = 0;
+      renderCanvas();
+
+      recorder.start(100);
+      media.play().catch(e => console.warn(e));
+      isPlaying = true;
+      updatePlayState();
+
+      const totalSec = mediaDuration || 15;
+
+      function exportRenderLoop() {
+        if (!isExporting) return;
+        const cur = media.currentTime;
+        renderCanvas();
+
+        const pct = Math.min(100, Math.round((cur / totalSec) * 100));
+        progressBar.style.width = `${pct}%`;
+        progressPct.textContent = `${pct}%`;
+
+        if (cur >= totalSec || media.ended) {
+          media.pause();
+          isPlaying = false;
+          updatePlayState();
+          if (recorder.state !== 'inactive') {
+            recorder.stop();
+          }
+          return;
+        }
+
+        exportLoopId = requestAnimationFrame(exportRenderLoop);
+      }
+
+      exportLoopId = requestAnimationFrame(exportRenderLoop);
+    }
+
+    // -------------------------------------------------------------
+    // UI 控制與拍打互動引擎
+    // -------------------------------------------------------------
+    function initMediaHandlers() {
+      const mediaInput = document.getElementById('mediaFileInput');
+      mediaInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        isVideoMode = file.type.startsWith('video/');
+        media.src = URL.createObjectURL(file);
+        document.getElementById('mediaFileName').textContent = file.name;
+        document.getElementById('mediaFileName').classList.add('text-amber-400');
+        showToast(`已載入媒體：${file.name}`, 'success');
+        media.load();
+      });
+
+      media.addEventListener('loadedmetadata', () => {
+        mediaDuration = media.duration;
+        document.getElementById('durationDisplay').textContent = formatTime(mediaDuration);
+      });
+
+      let isDragging = false;
+      const timeline = document.getElementById('mediaTimeline');
+
+      media.addEventListener('timeupdate', () => {
+        if (!isDragging && mediaDuration > 0 && !isExporting) {
+          const cur = media.currentTime;
+          timeline.value = (cur / mediaDuration) * 1000;
+          document.getElementById('currentTimeDisplay').textContent = formatTime(cur);
+          if (!isPlaying) renderCanvas();
+        }
+      });
+
+      timeline.addEventListener('input', () => {
+        isDragging = true;
+        const seekTime = (timeline.value / 1000) * (mediaDuration || 1);
+        document.getElementById('currentTimeDisplay').textContent = formatTime(seekTime);
+        media.currentTime = seekTime;
+        renderCanvas();
+      });
+
+      timeline.addEventListener('change', () => {
+        const seekTime = (timeline.value / 1000) * (mediaDuration || 1);
+        media.currentTime = seekTime;
+        isDragging = false;
+        renderCanvas();
+      });
+
+      media.addEventListener('ended', () => {
+        if (!isExporting) {
+          isPlaying = false;
+          updatePlayState();
+        }
+      });
+
+      document.getElementById('btnPlayPause').addEventListener('click', togglePlay);
+      document.getElementById('btnStop').addEventListener('click', () => {
+        media.pause();
+        media.currentTime = 0;
+        isPlaying = false;
+        updatePlayState();
+        renderCanvas();
+      });
+
+      document.getElementById('playbackRateSelect').addEventListener('change', (e) => {
+        media.playbackRate = parseFloat(e.target.value);
+      });
+
+      document.getElementById('btnPrevLine').addEventListener('click', () => {
+        if (currentLineIndex > 0) {
+          currentLineIndex--;
+          currentCharIndex = 0;
+          updateTapUI();
+          renderCanvas();
+          saveCurrentProject();
+        }
+      });
+
+      document.getElementById('btnNextLine').addEventListener('click', () => {
+        if (currentLineIndex < lyricsData.length - 1) {
+          currentLineIndex++;
+          currentCharIndex = 0;
+          updateTapUI();
+          renderCanvas();
+          saveCurrentProject();
+        }
+      });
+
+      document.getElementById('btnTogglePreviewBg').addEventListener('click', () => {
+        previewBgMode = previewBgMode === 'video_or_black' ? 'rgb_chroma' : 'video_or_black';
+        document.getElementById('previewBgModeText').textContent = previewBgMode === 'video_or_black' ? 'MP4 MV / 純黑' : '自訂 RGB 去背底色';
+        renderCanvas();
+      });
+    }
+
+    function togglePlay() {
+      ensureAudioPipeline();
+      if (media.paused) {
+        media.play().then(() => {
+          isPlaying = true;
+          updatePlayState();
+          startRenderLoop();
+        }).catch(() => {
+          showToast('請先上傳 MP4 影片或歌曲音訊', 'info');
+        });
+      } else {
+        media.pause();
+        isPlaying = false;
+        updatePlayState();
+      }
+    }
+
+    function updatePlayState() {
+      const icon = document.getElementById('playIcon');
+      const status = document.getElementById('playbackStatus');
+      if (isPlaying) {
+        icon.className = 'fa-solid fa-pause';
+        status.textContent = '播放中・小灰熊拍打中';
+        status.className = 'text-emerald-400 font-sans font-medium text-[11px]';
+      } else {
+        icon.className = 'fa-solid fa-play ml-0.5';
+        status.textContent = '已暫停';
+        status.className = 'text-amber-400 font-sans font-medium text-[11px]';
+      }
+    }
+
+    function formatTime(seconds) {
+      if (isNaN(seconds) || seconds < 0) seconds = 0;
+      const m = Math.floor(seconds / 60);
+      const s = Math.floor(seconds % 60);
+      const ms = Math.floor((seconds % 1) * 100);
+      return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}.${String(ms).padStart(2, '0')}`;
+    }
+
+    function initAntiJitterTappingEngine() {
+      const tapBtn = document.getElementById('tapWordBtn');
+
+      const triggerSmartTap = () => {
+        if (lyricsData.length === 0) return;
+        ensureAudioPipeline();
+        if (!isPlaying && media.paused) {
+          media.play().then(() => {
+            isPlaying = true;
+            updatePlayState();
+            startRenderLoop();
+          }).catch(() => {});
+        }
+
+        const curTime = media.currentTime;
+        let line = lyricsData[currentLineIndex];
+        if (!line) return;
+
+        if (currentCharIndex >= line.chars.length) {
+          if (currentLineIndex < lyricsData.length - 1) {
+            const prevLastChar = line.chars[line.chars.length - 1];
+            if (prevLastChar) {
+              prevLastChar.end = curTime;
+              line.lineEnd = curTime;
+            }
+            currentLineIndex++;
+            currentCharIndex = 0;
+            line = lyricsData[currentLineIndex];
+          } else {
+            showToast('全曲歌詞已全部拍打完成！', 'success');
+            return;
+          }
+        }
+
+        if (currentCharIndex === 0) {
+          line.lineStart = curTime;
+          line.chars[0].start = curTime;
+          currentCharIndex = 1;
+          if (line.chars.length === 1) {
+            line.chars[0].end = curTime + 2.0;
+            line.lineEnd = curTime + 2.0;
+          }
+        } else if (currentCharIndex < line.chars.length) {
+          line.chars[currentCharIndex - 1].end = curTime;
+          line.chars[currentCharIndex].start = curTime;
+          currentCharIndex++;
+
+          if (currentCharIndex === line.chars.length) {
+            const lastChar = line.chars[line.chars.length - 1];
+            lastChar.end = curTime + 2.0;
+            line.lineEnd = curTime + 2.0;
+          }
+        }
+
+        tapBtn.classList.add('tap-btn-active');
+        setTimeout(() => tapBtn.classList.remove('tap-btn-active'), 100);
+
+        updateTapUI();
+        renderTimingTable();
+        renderCanvas();
+        saveCurrentProject();
+      };
+
+      tapBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        triggerSmartTap();
+      });
+
+      const undoLastWord = () => {
+        if (lyricsData.length === 0) return;
+        const line = lyricsData[currentLineIndex];
+        if (!line) return;
+
+        if (currentCharIndex > 0) {
+          currentCharIndex--;
+          const targetChar = line.chars[currentCharIndex];
+          targetChar.start = null;
+          targetChar.end = null;
+          if (currentCharIndex === 0) {
+            line.lineStart = null;
+          } else {
+            line.chars[currentCharIndex - 1].end = null;
+          }
+          updateTapUI();
+          renderTimingTable();
+          renderCanvas();
+          saveCurrentProject();
+          showToast(`已倒退至【${targetChar.char}】`, 'info');
+        } else if (currentLineIndex > 0) {
+          currentLineIndex--;
+          const prevLine = lyricsData[currentLineIndex];
+          currentCharIndex = Math.max(0, prevLine.chars.length - 1);
+          updateTapUI();
+          renderTimingTable();
+          renderCanvas();
+          saveCurrentProject();
+          showToast(`已回到上一句：第 ${currentLineIndex + 1} 句`, 'info');
+        }
+      };
+
+      document.getElementById('btnUndoWord').addEventListener('click', undoLastWord);
+
+      window.addEventListener('keydown', (e) => {
+        if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
+
+        if (e.code === 'Space') {
+          e.preventDefault();
+          triggerSmartTap();
+        } else if (e.code === 'Backspace') {
+          e.preventDefault();
+          undoLastWord();
+        } else if (e.code === 'Enter') {
+          e.preventDefault();
+          manualNextLine();
+        } else if (e.code === 'Delete') {
+          e.preventDefault();
+          resetCurrentLine();
+        }
+      });
+
+      document.getElementById('btnResetCurrentLine').addEventListener('click', resetCurrentLine);
+      document.getElementById('btnManualNextLine').addEventListener('click', manualNextLine);
+    }
+
+    function manualNextLine() {
+      if (currentLineIndex < lyricsData.length - 1) {
+        const curLine = lyricsData[currentLineIndex];
+        if (curLine && currentCharIndex > 0) {
+          const lastChar = curLine.chars[Math.min(currentCharIndex - 1, curLine.chars.length - 1)];
+          if (lastChar && lastChar.start !== null) {
+            lastChar.end = media.currentTime;
+            curLine.lineEnd = media.currentTime;
+          }
+        }
+        currentLineIndex++;
+        currentCharIndex = 0;
+        updateTapUI();
+        renderTimingTable();
+        renderCanvas();
+        saveCurrentProject();
+        showToast(`切換至第 ${currentLineIndex + 1} 句`, 'info');
+      }
+    }
+
+    function resetCurrentLine() {
+      if (lyricsData.length === 0) return;
+      const line = lyricsData[currentLineIndex];
+      if (!line) return;
+      line.lineStart = null;
+      line.lineEnd = null;
+      line.chars.forEach(c => { c.start = null; c.end = null; });
+      currentCharIndex = 0;
+      updateTapUI();
+      renderTimingTable();
+      renderCanvas();
+      saveCurrentProject();
+      showToast(`已重置第 ${currentLineIndex + 1} 句時間`, 'info');
+    }
+
+    function updateTapUI() {
+      document.getElementById('currentLineIndexDisplay').textContent = (currentLineIndex + 1);
+      document.getElementById('totalLinesDisplay').textContent = lyricsData.length;
+
+      const container = document.getElementById('tapKaraokeWordContainer');
+      container.innerHTML = '';
+
+      if (lyricsData.length === 0) {
+        container.innerHTML = `<span class="text-slate-500 text-sm font-sans">尚未載入歌詞</span>`;
+        return;
+      }
+
+      const currentLine = lyricsData[currentLineIndex];
+      if (!currentLine) return;
+
+      currentLine.chars.forEach((c, idx) => {
+        const box = document.createElement('div');
+        if (appMode === 'kpop') {
+          box.style.minWidth = '54px';
+          box.style.padding = '0 8px';
+        } else {
+          box.style.width = '38px';
+        }
+        box.style.height = '52px';
+        box.className = 'flex-none flex flex-col items-center justify-center rounded-lg border-2 select-none box-border transition-colors ';
+
+        if (idx === currentCharIndex) {
+          box.className += 'bg-amber-500/30 border-amber-400 text-amber-300 shadow-md shadow-amber-500/20';
+          setTimeout(() => {
+            box.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+          }, 10);
+        } else if (c.start !== null) {
+          box.className += 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300';
+        } else {
+          box.className += 'bg-slate-900 border-slate-800 text-slate-400';
+        }
+
+        const charSpan = document.createElement('span');
+        charSpan.textContent = c.char;
+        charSpan.className = (appMode === 'kpop') 
+          ? 'text-base font-bold leading-tight font-kpop-kr whitespace-nowrap' 
+          : 'text-lg font-nom leading-tight font-bold';
+
+        const timeSpan = document.createElement('span');
+        timeSpan.className = 'text-[9px] font-mono leading-none mt-0.5 text-slate-400';
+        if (c.start !== null && c.end !== null) {
+          timeSpan.textContent = (c.end - c.start).toFixed(2) + 's';
+        } else if (c.start !== null) {
+          timeSpan.textContent = '...';
+        } else {
+          timeSpan.textContent = '--';
+        }
+
+        box.appendChild(charSpan);
+        box.appendChild(timeSpan);
+        container.appendChild(box);
+      });
+
+      const nextLine = lyricsData[currentLineIndex + 1];
+      const nextLineEl = document.getElementById('nextLinePreviewText');
+      nextLineEl.textContent = nextLine ? `下一句：${nextLine.text}` : '下一句：(已是最後一句)';
+      nextLineEl.className = (appMode === 'kpop') ? 'text-xs font-kpop-kr text-slate-400 truncate text-center h-4 leading-none' : 'text-xs font-nom text-slate-400 truncate text-center h-4 leading-none';
+    }
+
+    function renderTimingTable() {
+      const container = document.getElementById('timingListContainer');
+      container.innerHTML = '';
+      if (lyricsData.length === 0) {
+        container.innerHTML = `<div class="text-center py-6 text-xs text-slate-500">暫無記錄</div>`;
+        return;
+      }
+
+      lyricsData.forEach((line, lIdx) => {
+        const item = document.createElement('div');
+        item.className = `p-2.5 rounded-xl border text-xs flex flex-col gap-1.5 ${lIdx === currentLineIndex ? 'bg-slate-800/80 border-amber-500/50' : 'bg-slate-950/60 border-slate-800/80'}`;
+        
+        const lineTextClass = (appMode === 'kpop') ? 'font-kpop-kr font-bold text-slate-200 text-sm' : 'font-nom font-bold text-slate-200 text-sm';
+        const transInfo = (appMode === 'kpop' && line.translation) ? `<span class="text-amber-300/90 text-[11px] ml-2 font-kpop-kai font-semibold">(${line.translation})</span>` : '';
+
+        item.innerHTML = `
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2 truncate flex-1 min-w-0">
+              <span class="font-mono text-amber-400 font-bold">#${lIdx + 1}</span>
+              <span class="${lineTextClass} truncate">${line.text}</span>
+              ${transInfo}
+            </div>
+            <button class="btn-jump px-2 py-0.5 rounded bg-slate-800 hover:bg-amber-500 hover:text-slate-950 text-slate-300 text-[10px] transition shrink-0 ml-2">定位</button>
+          </div>
+        `;
+        item.querySelector('.btn-jump').onclick = () => {
+          currentLineIndex = lIdx;
+          currentCharIndex = 0;
+          if (line.lineStart !== null) {
+            media.currentTime = Math.max(0, line.lineStart - 0.5);
+          }
+          updateTapUI();
+          renderTimingTable();
+          renderCanvas();
+          saveCurrentProject();
+        };
+
+        const wordsFlow = document.createElement('div');
+        wordsFlow.className = 'flex flex-wrap gap-1.5 text-[11px] font-mono text-slate-400';
+        line.chars.forEach((c) => {
+          const pill = document.createElement('span');
+          pill.className = `px-1.5 py-0.5 rounded ${c.start !== null ? 'bg-slate-800 text-emerald-300 border border-emerald-500/20' : 'bg-slate-900 text-slate-600'}`;
+          pill.textContent = `${c.char}: ${c.start !== null ? c.start.toFixed(2) : '-'}~${c.end !== null ? c.end.toFixed(2) : '-'}`;
+          wordsFlow.appendChild(pill);
+        });
+
+        item.appendChild(wordsFlow);
+        container.appendChild(item);
+      });
+    }
+
+    function initTranslationStyleInputs() {
+      const fontSizeInput = document.getElementById('transFontSizeInput');
+      const fillPicker = document.getElementById('transFillColorPicker');
+      const fillHex = document.getElementById('transFillColorHex');
+      const strokePicker = document.getElementById('transStrokeColorPicker');
+      const strokeHex = document.getElementById('transStrokeColorHex');
+
+      fontSizeInput.addEventListener('input', (e) => {
+        let val = parseInt(e.target.value) || 20;
+        styleConfig.transFontSize = Math.min(72, Math.max(10, val));
+        renderCanvas();
+        saveCurrentProject();
+      });
+
+      fillPicker.addEventListener('input', (e) => {
+        styleConfig.transFillColor = e.target.value;
+        fillHex.value = e.target.value.toUpperCase();
+        renderCanvas();
+        saveCurrentProject();
+      });
+
+      fillHex.addEventListener('change', (e) => {
+        let val = e.target.value.trim();
+        if (!val.startsWith('#')) val = '#' + val;
+        if (/^#[0-9A-F]{6}$/i.test(val)) {
+          styleConfig.transFillColor = val;
+          fillPicker.value = val;
+          renderCanvas();
+          saveCurrentProject();
+        }
+      });
+
+      strokePicker.addEventListener('input', (e) => {
+        styleConfig.transStrokeColor = e.target.value;
+        strokeHex.value = e.target.value.toUpperCase();
+        renderCanvas();
+        saveCurrentProject();
+      });
+
+      strokeHex.addEventListener('change', (e) => {
+        let val = e.target.value.trim();
+        if (!val.startsWith('#')) val = '#' + val;
+        if (/^#[0-9A-F]{6}$/i.test(val)) {
+          styleConfig.transStrokeColor = val;
+          strokePicker.value = val;
+          renderCanvas();
+          saveCurrentProject();
+        }
+      });
+    }
+
+    function initRGBInputs() {
+      const sizeInput = document.getElementById('inputFontSize');
+      sizeInput.addEventListener('input', (e) => {
+        let val = parseInt(e.target.value) || 84;
+        styleConfig.fontSize = Math.min(160, Math.max(30, val));
+        renderCanvas();
+        saveCurrentProject();
+      });
+
+      const bindRGB = (prefix, rKey, gKey, bKey) => {
+        const rInput = document.getElementById(`${prefix}_r`);
+        const gInput = document.getElementById(`${prefix}_g`);
+        const bInput = document.getElementById(`${prefix}_b`);
+        const picker = document.getElementById(`picker_${prefix}`);
+        const hexInput = document.getElementById(`hex_${prefix}`);
+
+        const updateNums = () => {
+          let r = Math.min(255, Math.max(0, parseInt(rInput.value) || 0));
+          let g = Math.min(255, Math.max(0, parseInt(gInput.value) || 0));
+          let b = Math.min(255, Math.max(0, parseInt(bInput.value) || 0));
+          styleConfig[rKey] = r;
+          styleConfig[gKey] = g;
+          styleConfig[bKey] = b;
+          const hex = rgbToHex(r, g, b);
+          picker.value = hex;
+          hexInput.value = hex.toUpperCase();
+          renderCanvas();
+          saveCurrentProject();
+        };
+
+        const updatePicker = () => {
+          const rgb = hexToRgb(picker.value);
+          rInput.value = rgb.r;
+          gInput.value = rgb.g;
+          bInput.value = rgb.b;
+          hexInput.value = picker.value.toUpperCase();
+          styleConfig[rKey] = rgb.r;
+          styleConfig[gKey] = rgb.g;
+          styleConfig[bKey] = rgb.b;
+          renderCanvas();
+          saveCurrentProject();
+        };
+
+        const updateHex = () => {
+          let hex = hexInput.value.trim();
+          if (!hex.startsWith('#')) hex = '#' + hex;
+          if (/^#[0-9A-F]{6}$/i.test(hex)) {
+            picker.value = hex;
+            const rgb = hexToRgb(hex);
+            rInput.value = rgb.r;
+            gInput.value = rgb.g;
+            bInput.value = rgb.b;
+            styleConfig[rKey] = rgb.r;
+            styleConfig[gKey] = rgb.g;
+            styleConfig[bKey] = rgb.b;
+            renderCanvas();
+            saveCurrentProject();
+          }
+        };
+
+        rInput.addEventListener('input', updateNums);
+        gInput.addEventListener('input', updateNums);
+        bInput.addEventListener('input', updateNums);
+        picker.addEventListener('input', updatePicker);
+        hexInput.addEventListener('change', updateHex);
+      };
+
+      bindRGB('in_fill', 'inFillR', 'inFillG', 'inFillB');
+      bindRGB('in_stroke', 'inStrokeR', 'inStrokeG', 'inStrokeB');
+      bindRGB('act_fill', 'actFillR', 'actFillG', 'actFillB');
+      bindRGB('act_stroke', 'actStrokeR', 'actStrokeG', 'actStrokeB');
+      bindRGB('bg', 'bgR', 'bgG', 'bgB');
+    }
+
+    function applyStyleToInputs() {
+      document.getElementById('inputFontSize').value = styleConfig.fontSize;
+      document.getElementById('transFontSizeInput').value = styleConfig.transFontSize || 20;
+      document.getElementById('transFillColorPicker').value = styleConfig.transFillColor || '#FFE600';
+      document.getElementById('transFillColorHex').value = (styleConfig.transFillColor || '#FFE600').toUpperCase();
+      document.getElementById('transStrokeColorPicker').value = styleConfig.transStrokeColor || '#990000';
+      document.getElementById('transStrokeColorHex').value = (styleConfig.transStrokeColor || '#990000').toUpperCase();
+
+      const setRGB = (prefix, r, g, b) => {
+        document.getElementById(`${prefix}_r`).value = r;
+        document.getElementById(`${prefix}_g`).value = g;
+        document.getElementById(`${prefix}_b`).value = b;
+        const hex = rgbToHex(r, g, b);
+        document.getElementById(`picker_${prefix}`).value = hex;
+        document.getElementById(`hex_${prefix}`).value = hex.toUpperCase();
+      };
+      setRGB('in_fill', styleConfig.inFillR, styleConfig.inFillG, styleConfig.inFillB);
+      setRGB('in_stroke', styleConfig.inStrokeR, styleConfig.inStrokeG, styleConfig.inStrokeB);
+      setRGB('act_fill', styleConfig.actFillR, styleConfig.actFillG, styleConfig.actFillB);
+      setRGB('act_stroke', styleConfig.actStrokeR, styleConfig.actStrokeG, styleConfig.actStrokeB);
+      setRGB('bg', styleConfig.bgR, styleConfig.bgG, styleConfig.bgB);
+    }
+
+    function rgbToHex(r, g, b) {
+      return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+    }
+    function hexToRgb(hex) {
+      const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+      return result ? {
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16)
+      } : { r: 255, g: 255, b: 255 };
+    }
+
+    // 喃字字型載入器
+    function setupFontLoader() {
+      const fontInput = document.getElementById('fontFileInput');
+      fontInput.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        try {
+          const buffer = await file.arrayBuffer();
+          const userFont = new FontFace('UserNomFont', buffer);
+          await userFont.load();
+          document.fonts.add(userFont);
+
+          // 快取至 IndexedDB
+          await persistFont('nomFont', buffer, file.name);
+
+          document.getElementById('fontFileName').textContent = file.name;
+          document.getElementById('fontFileName').classList.remove('text-slate-400');
+          document.getElementById('fontFileName').classList.add('text-cyan-400', 'font-medium');
+          
+          const badge = document.getElementById('fontStatusBadge');
+          badge.textContent = '已載入字型';
+          badge.className = 'text-[10px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20';
+
+          showToast(`已成功載入字型：${file.name}`, 'success');
+          renderCanvas();
+          updateTapUI();
+        } catch (err) {
+          console.error(err);
+          showToast('字型載入失敗，請確認檔案格式', 'error');
+        }
+      });
+    }
+
+    // 個人專屬標楷體載入器 (套用使用者上傳之標楷體)
+    function setupKaiFontLoader() {
+      const kaiInput = document.getElementById('kaiFileInput');
+      kaiInput.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        try {
+          const buffer = await file.arrayBuffer();
+          const userKai = new FontFace('UserKaiFont', buffer);
+          await userKai.load();
+          document.fonts.add(userKai);
+
+          // 快取至 IndexedDB，關閉或重整也能完整保留
+          await persistFont('kaiFont', buffer, file.name);
+
+          document.getElementById('kaiFileName').textContent = file.name;
+          document.getElementById('kaiFileName').classList.remove('text-slate-400');
+          document.getElementById('kaiFileName').classList.add('text-emerald-400', 'font-bold');
+
+          const badge = document.getElementById('kaiFontStatusBadge');
+          if (badge) {
+            badge.textContent = '專屬字型已套用';
+            badge.className = 'text-[10px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 font-bold';
+          }
+
+          showToast(`已成功套用個人專屬標楷體：${file.name}`, 'success');
+          renderCanvas();
+          renderTimingTable();
+        } catch (err) {
+          console.error(err);
+          showToast('標楷體字型載入失敗，請確認為有效 TTF / OTF 檔案', 'error');
+        }
+      });
+    }
+
+    function setupProjectManagerUI() {
+      document.getElementById('btnOpenProjectsModal').addEventListener('click', () => {
+        renderProjectsList();
+        document.getElementById('projectsModal').classList.remove('hidden');
+      });
+
+      document.getElementById('btnCreateNewProject').addEventListener('click', () => {
+        const rawTitle = document.getElementById('newProjectTitleInput').value.trim();
+        if (!rawTitle) {
+          showToast('請輸入歌曲名稱', 'info');
+          return;
+        }
+        const title = formatSongTitle(rawTitle);
+
+        const newId = `proj_${Date.now()}`;
+        currentProjectId = newId;
+        currentProjectTitle = title;
+        document.getElementById('newProjectTitleInput').value = '';
+
+        document.getElementById('rawLyricsInput').value = '';
+        document.getElementById('rawTranslationInput').value = '';
+        lyricsData = [];
+        currentLineIndex = 0;
+        currentCharIndex = 0;
+
+        saveCurrentProject(true);
+        updateTapUI();
+        renderTimingTable();
+        renderCanvas();
+        document.getElementById('projectsModal').classList.add('hidden');
+        showToast(`已新增檔案：${title}`, 'success');
+      });
+
+      document.getElementById('btnConfirmRename').addEventListener('click', async () => {
+        const inputVal = document.getElementById('renameProjectInput').value.trim();
+        if (!inputVal) {
+          showToast('請輸入新檔名', 'info');
+          return;
+        }
+        const newTitle = formatSongTitle(inputVal);
+        const item = projectList.find(p => p.id === renameTargetId);
+        if (item) {
+          item.title = newTitle;
+          if (renameTargetId === currentProjectId) {
+            currentProjectTitle = newTitle;
+          }
+          await saveCurrentProject(false);
+          renderProjectsList();
+          showToast(`已更名為：${newTitle}`, 'success');
+        }
+        document.getElementById('renameModal').classList.add('hidden');
+      });
+
+      document.getElementById('btnCancelRename').addEventListener('click', () => {
+        document.getElementById('renameModal').classList.add('hidden');
+      });
+
+      document.getElementById('btnConfirmDelete').addEventListener('click', async () => {
+        if (!deleteTargetId) return;
+
+        try {
+          if (currentUser && isFirebaseReady) {
+            const docRef = doc(db, 'artifacts', appId, 'public', 'data', deleteTargetId);
+            await deleteDoc(docRef);
+          }
+          localStorage.removeItem(`${LOCAL_PROJ_PREFIX}${deleteTargetId}`);
+
+          const deletedIdx = projectList.findIndex(p => p.id === deleteTargetId);
+          const wasActive = (deleteTargetId === currentProjectId);
+
+          if (deletedIdx >= 0) {
+            projectList.splice(deletedIdx, 1);
+          }
+
+          if (wasActive) {
+            if (projectList.length > 0) {
+              await loadProject(projectList[0].id);
+            } else {
+              currentProjectId = `proj_${Date.now()}`;
+              currentProjectTitle = '〈未命名歌曲〉';
+              lyricsData = [];
+              currentLineIndex = 0;
+              currentCharIndex = 0;
+              document.getElementById('rawLyricsInput').value = '';
+              document.getElementById('rawTranslationInput').value = '';
+              projectList = [{ id: currentProjectId, title: currentProjectTitle, mode: appMode }];
+              await saveCurrentProject(false);
+              updateTapUI();
+              renderTimingTable();
+              renderCanvas();
+            }
+          }
+
+          renderProjectsList();
+          showToast('檔案已成功刪除', 'info');
+        } catch (err) {
+          console.error("刪除失敗:", err);
+          showToast('刪除失敗，請重試', 'error');
+        }
+        document.getElementById('deleteConfirmModal').classList.add('hidden');
+      });
+
+      document.getElementById('btnCancelDelete').addEventListener('click', () => {
+        document.getElementById('deleteConfirmModal').classList.add('hidden');
+      });
+    }
+
+    function renderProjectsList() {
+      const container = document.getElementById('projectsListContainer');
+      container.innerHTML = '';
+
+      if (projectList.length === 0) {
+        container.innerHTML = `<div class="text-center py-6 text-xs text-slate-500">暫無檔案，請點擊上方新增</div>`;
+        return;
+      }
+
+      projectList.forEach((proj) => {
+        const item = document.createElement('div');
+        const isActive = (proj.id === currentProjectId);
+        const modeBadge = (proj.mode === 'kpop') 
+          ? '<span class="text-[10px] bg-purple-500/20 text-purple-300 px-1.5 py-0.5 rounded border border-purple-500/30">K-POP</span>' 
+          : '<span class="text-[10px] bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded border border-amber-500/30">喃字</span>';
+
+        item.className = `p-3 rounded-xl border flex items-center justify-between transition gap-2 ${isActive ? 'bg-slate-800 border-cyan-500/60' : 'bg-slate-950 border-slate-800'}`;
+        item.innerHTML = `
+          <div class="flex items-center gap-2 truncate flex-1 min-w-0">
+            <i class="fa-solid fa-music ${isActive ? 'text-cyan-400' : 'text-slate-500'} shrink-0"></i>
+            <span class="font-medium text-sm text-slate-200 truncate">${proj.title}</span>
+            ${modeBadge}
+          </div>
+          <div class="flex items-center gap-1.5 shrink-0">
+            <button class="btn-switch-proj px-2.5 py-1 ${isActive ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40' : 'bg-slate-800 hover:bg-cyan-600 text-slate-300'} rounded-lg text-xs transition border border-slate-700 font-semibold">
+              ${isActive ? '使用中' : '切換'}
+            </button>
+            <button class="btn-rename-proj px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-cyan-300 rounded-lg text-xs transition border border-slate-700" title="變更檔名">
+              <i class="fa-solid fa-pen-to-square"></i>
+            </button>
+            <button class="btn-delete-proj px-2 py-1 bg-slate-800 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 rounded-lg text-xs transition border border-slate-700" title="刪除檔案">
+              <i class="fa-solid fa-trash-can"></i>
+            </button>
+          </div>
+        `;
+
+        item.querySelector('.btn-switch-proj').onclick = () => {
+          if (proj.id !== currentProjectId) {
+            loadProject(proj.id);
+            document.getElementById('projectsModal').classList.add('hidden');
+            showToast(`已切換至檔案：${proj.title}`, 'success');
+          }
+        };
+
+        item.querySelector('.btn-rename-proj').onclick = () => {
+          renameTargetId = proj.id;
+          document.getElementById('renameProjectInput').value = proj.title.replace(/^〈|〉$/g, '');
+          document.getElementById('renameModal').classList.remove('hidden');
+        };
+
+        item.querySelector('.btn-delete-proj').onclick = () => {
+          deleteTargetId = proj.id;
+          document.getElementById('deleteTargetTitleDisplay').textContent = proj.title;
+          document.getElementById('deleteConfirmModal').classList.remove('hidden');
+        };
+
+        container.appendChild(item);
+      });
+    }
+
+    document.getElementById('btnManualSave').addEventListener('click', () => {
+      saveCurrentProject(true);
+    });
+
+    function showToast(message, type = 'info') {
+      const toast = document.createElement('div');
+      const icons = {
+        success: 'fa-circle-check text-emerald-400',
+        error: 'fa-circle-exclamation text-rose-400',
+        info: 'fa-circle-info text-amber-400'
+      };
+      toast.className = 'pointer-events-auto bg-slate-900/95 text-slate-100 text-xs px-4 py-3 rounded-xl border border-slate-800 shadow-2xl flex items-center gap-2.5 transition-all duration-300 transform translate-y-2 opacity-0';
+      toast.innerHTML = `<i class="fa-solid ${icons[type] || icons.info}"></i> <span>${message}</span>`;
+      
+      const container = document.getElementById('toastContainer');
+      container.appendChild(toast);
+      
+      requestAnimationFrame(() => { toast.classList.remove('translate-y-2', 'opacity-0'); });
+      setTimeout(() => {
+        toast.classList.add('opacity-0', 'translate-y-2');
+        setTimeout(() => toast.remove(), 300);
+      }, 3200);
+    }
+  </script>
+</body>
+</html>
